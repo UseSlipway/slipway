@@ -22,7 +22,8 @@ def run(*args: str, input_data: bytes | None = None, allow_failure: bool = False
     env["GCM_INTERACTIVE"] = "never"
     result = subprocess.run(args, input=input_data, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env)
     if result.returncode and not allow_failure:
-        sys.stderr.buffer.write(result.stderr)
+        safe_stderr = re.sub(rb"https://[^/@\s]+@", b"https://[redacted]@", result.stderr)
+        sys.stderr.buffer.write(safe_stderr)
         raise SystemExit(result.returncode)
     return result.stdout
 
