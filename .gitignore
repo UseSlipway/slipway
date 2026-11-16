@@ -16,6 +16,7 @@ dist-ssr/
 *.log
 *.pem
 .vercel/
+.wrangler/
 contracts/out/
 contracts/cache/
 contracts/lib/

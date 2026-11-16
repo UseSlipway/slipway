@@ -52,7 +52,7 @@ The backend applies SQL migrations at startup. Set the relevant chain RPC and da
 ## Deployment
 
 - **Frontend:** Vercel. Import the repository and use the root directory; the build selects the Vercel Nitro preset. No `vercel.json` is required.
-- **Backend:** Render, rooted at `backend`, using Bun. Build: `bun install && bun run check`. Start: `bun run start`. Configure `DATABASE_URL`, RPC endpoints, and provider credentials as service environment variables. CI can call `RENDER_DEPLOY_HOOK_URL` when configured.
+- **Backend:** Render, rooted at `backend`, using Bun. Build: `bun install --frozen-lockfile && bun run check`. Start: `bun run start`. Configure `DATABASE_URL`, RPC endpoints, and provider credentials as service environment variables. CI can call `RENDER_DEPLOY_HOOK_URL` when configured.
 - **Contracts:** deploy separately with Foundry after contract design, chain configuration, and audit review are settled.
 
 ## Dual repository sync
