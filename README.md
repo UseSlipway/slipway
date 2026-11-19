@@ -57,7 +57,7 @@ The backend applies SQL migrations at startup. Set the relevant chain RPC and da
 
 ## x402 payments
 
-The backend is being prepared to run its own x402 v2 exact-payment facilitator in-process for Robinhood Chain (`eip155:4663`) and Base (`eip155:8453`). It uses the x402 EVM facilitator implementation and does not need a separate `X402_FACILITATOR_URL`. `X402_ENABLED` remains `false` until a dedicated facilitator signer is configured and funded for gas on both chains. The asset and receiving-address variables in `backend/.env.example` are for the payment resource routes, which will be wired once USDG and USDC payment configuration is confirmed. Bitquery is optional; Codex remains the planned discovery input, checked against chain state.
+The backend is being prepared to run its own x402 v2 exact-payment facilitator in-process for Robinhood Chain (`eip155:4663`) and Base (`eip155:8453`). It uses the x402 EVM facilitator implementation and does not need a separate `X402_FACILITATOR_URL`. `X402_ENABLED` remains `false` until a dedicated facilitator signer is configured and funded for gas on both chains. The asset and receiving-address variables in `backend/.env.example` are for the payment resource routes, which will be wired once USDG and USDC payment configuration is confirmed. Codex is the planned discovery input, checked against chain state.
 
 `SLIPWAY_FEE_ROUTER_ADDRESS` is unrelated to x402. It will identify Slipway's EVM trade-fee router contract, used by built trades that collect Slipway and integrator fees on-chain. It stays empty until that contract is implemented, deployed, and its fee behavior is finalized.
 
