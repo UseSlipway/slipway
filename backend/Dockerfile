@@ -9,7 +9,7 @@ FROM base AS runner
 ENV NODE_ENV=production
 ARG APP_COMMIT_SHA=unknown
 ENV APP_COMMIT_SHA=${APP_COMMIT_SHA}
-LABEL org.opencontainers.image.source="https://github.com/NotADeveloper7/slipway"
+LABEL org.opencontainers.image.source="https://github.com/UseSlipway/slipway"
 LABEL org.opencontainers.image.revision=${APP_COMMIT_SHA}
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .

@@ -47,7 +47,7 @@ The backend applies SQL migrations at startup. Set the relevant chain RPC and da
 ## Deployment
 
 - **Frontend:** Vercel. Import the repository and use the root directory. Build: `npm run build`; output: `dist`. The `/api/slipway` serverless function proxies API calls. No `vercel.json` is required.
-- **Backend:** Render pulls `ghcr.io/notadeveloper7/slipway-backend:latest`. The backend workflow publishes the image on private `main` and then calls `RENDER_DEPLOY_HOOK_URL`. Configure the Render image service and GHCR credentials, then add the deploy hook as a GitHub Actions secret. Set the backend environment variables described in [`backend/.env.example`](backend/.env.example). See [`backend/DEPLOYMENT.md`](backend/DEPLOYMENT.md).
+- **Backend:** Render pulls `ghcr.io/useslipway/slipway-backend:latest`. The backend workflow publishes the image when `UseSlipway/slipway` `main` is updated, then calls `RENDER_DEPLOY_HOOK_URL`. Configure the Render image service and GHCR credentials, then add the deploy hook as a GitHub Actions secret in the public repository. Set the backend environment variables described in [`backend/.env.example`](backend/.env.example). See [`backend/DEPLOYMENT.md`](backend/DEPLOYMENT.md).
 - **Contracts:** Foundry contracts live in `/contracts`; the initial fee routers are deployed to Robinhood Chain and Base. They have not been audited.
 
 ## x402 payments
@@ -56,9 +56,9 @@ The backend runs its x402 v2 exact-payment facilitator in-process for Robinhood 
 
 `SLIPWAY_RHC_FEE_ROUTER_ADDRESS` and `SLIPWAY_BASE_FEE_ROUTER_ADDRESS` identify the per-chain EVM trade-fee routers. Deployment details are in [`contracts/deployments`](contracts/deployments/). The contracts are initial implementations and have not been audited.
 
-## Dual repository sync
+## Repository sync
 
-The private repository is the source of truth on `main` (`origin`). `python3 scripts/sync-public.py` rewrites commit identities for `UseSlipway`, publishes to `public-origin/main`, and removes `technical-docs/` from the public history. It refuses to replace an unrelated public history. Do not push the private branch directly to the public remote.
+Maintainers publish sanitized history to `UseSlipway/slipway` with `python3 scripts/sync-public.py`. The script rewrites commit identities and removes `technical-docs/` from the published history. It refuses to replace an unrelated history. Updates to `UseSlipway/slipway` run the backend and contract workflows.
 
 ## Stack
 
@@ -66,4 +66,4 @@ React, Vite, Bun, Express, TypeScript, PostgreSQL, Foundry, Solidity, Solana tra
 
 ## Status
 
-The frontend is now at the repository root. The backend remains an early scaffold: health and x402 facilitator routes exist, but token resolution, market data, quotes, unsigned trade/launch builds, submission, and event streaming are not implemented. See [`BACKEND_HANDOFF.md`](BACKEND_HANDOFF.md) and the private `technical-docs/Slipway_Overview.md` for the current integration boundary and product brief.
+The frontend is now at the repository root. The backend remains an early scaffold: health and x402 facilitator routes exist, but token resolution, market data, quotes, unsigned trade/launch builds, submission, and event streaming are not implemented. See [`BACKEND_HANDOFF.md`](BACKEND_HANDOFF.md) and [`backend/DEPLOYMENT.md`](backend/DEPLOYMENT.md).

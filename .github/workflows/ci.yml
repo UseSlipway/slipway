@@ -9,6 +9,7 @@ permissions:
 
 jobs:
   contracts:
+    if: github.repository == 'UseSlipway/slipway'
     runs-on: ubuntu-latest
     defaults:
       run:

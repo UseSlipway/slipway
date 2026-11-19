@@ -6,7 +6,7 @@ on:
 
 jobs:
   check:
-    if: github.repository == 'NotADeveloper7/slipway'
+    if: github.repository == 'UseSlipway/slipway'
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -23,7 +23,7 @@ jobs:
 
   publish:
     needs: check
-    if: github.repository == 'NotADeveloper7/slipway' && github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: github.repository == 'UseSlipway/slipway' && github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -45,12 +45,12 @@ jobs:
           build-args: |
             APP_COMMIT_SHA=${{ github.sha }}
           tags: |
-            ghcr.io/notadeveloper7/slipway-backend:latest
-            ghcr.io/notadeveloper7/slipway-backend:${{ github.sha }}
+            ghcr.io/useslipway/slipway-backend:latest
+            ghcr.io/useslipway/slipway-backend:${{ github.sha }}
 
   deploy:
     needs: publish
-    if: github.repository == 'NotADeveloper7/slipway' && github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: github.repository == 'UseSlipway/slipway' && github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
       - name: Trigger Render deployment when configured
