@@ -1,0 +1,52 @@
+{
+  "assets": [
+    {
+      "id": "nacre",
+      "variant": "nacre-002",
+      "type": "gradient",
+      "placement": "dashboard background",
+      "source": "https://www.getlayers.ai/?layer=nacre",
+      "localSource": "references/getlayers-nacre.html",
+      "component": "src/DashboardGradient.jsx",
+      "config": {
+        "bgColor": "#f6f0e4",
+        "colorA": "#ded6e8",
+        "colorB": "#f3d99e",
+        "colorC": "#fae9c5",
+        "colorD": "#fffdf8",
+        "scale": 1.18,
+        "speed": 0.33,
+        "flow": 0.11,
+        "warp": 0.72,
+        "warpScale": 0.82,
+        "roughness": 0.44,
+        "lacunarity": 1.72,
+        "stretch": 3.9,
+        "stretchDecay": 0.82,
+        "grainAngle": 0.28,
+        "curve": 0.35,
+        "film": 0.34,
+        "relief": 1.2,
+        "orders": 0.55,
+        "drift": 0.05,
+        "washout": 0.1,
+        "iridescence": 0.95,
+        "contrast": 0.95,
+        "midpoint": 0.48,
+        "sink": 0.09,
+        "sheen": 0.12,
+        "grain": 0,
+        "grainAnim": 0,
+        "dither": 1.5,
+        "vignette": 0.05,
+        "cursor": 1,
+        "pointerRadius": 0.7,
+        "pointerStrength": 0.11,
+        "pointerThin": 0.2,
+        "pointerWake": 0.26,
+        "parallax": 0.005,
+        "maxDpr": 1
+      }
+    }
+  ]
+}

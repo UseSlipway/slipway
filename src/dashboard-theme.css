@@ -1,0 +1,60 @@
+/* Pearl, champagne and pale plum, drawn by the GetLayers Nacre shader. */
+.dashboard{position:relative;isolation:isolate;background:#f6f0e4;color:#352331;--cream:#352331;--muted:#72636d;--gold:#91672e;--line:#65465028}
+.dashboard-gradient{position:fixed;inset:0;z-index:-1;pointer-events:none;background:linear-gradient(130deg,#fffdf8,#f6e3bb 52%,#e8e0ef)}
+.dashboard-gradient canvas{display:block;width:100%;height:100%}
+.dashboard .frame,.dashboard .frame__canvas{background:transparent}
+.dashboard .g3{--accent-50:#fff9ed;--accent-100:#f9ecd2;--accent-200:#ebd09a;--accent-300:#d6b77c;--accent-400:#c6a35e;--accent-500:#e2bf78;--accent-600:#98702f;--accent-700:#795324;--accent-contrast:#352331;--surface:#fffcf7eb;--surface-2:#f1e9df;--surface-3:#e4d9cf;--ink:#352331;--ink-2:#665260;--ink-3:#796972;--line:#71525f26;--invert-bg:#452b40;--invert-ink:#fff7e8;--n-300:#d7c8ba;--ok-fg:#42694f;--bad-fg:#a94345;--sh-1:0 1px 2px #452b4006,0 5px 18px #452b4004;--sh-3:0 6px 24px #452b4012;--sh-accent:0 8px 24px #ad874c15}
+.dashboard .g3__c{border:1px solid #ffffffb8}
+.dashboard .g3__face{background:#452b40}
+.dashboard .g3__btn[data-v=primary],.dashboard .g3__ico[data-v=accent],.dashboard .g3__add{color:#352331}
+.dashboard .g3__goal{color:#795324}
+.dashboard .g3__tk.brand-mark{background:none;color:#91672e}
+.dashboard .g3__chip{gap:10px;padding-inline:13px}
+.dashboard .g3__chip svg{flex-shrink:0}
+.dashboard .g3__balTag{position:static;align-self:flex-start;margin:14px 0 12px}
+.dashboard .g3__bal .widget-empty{line-height:1.6;padding-bottom:14px}
+.dashboard .button{background:#452b40;color:#fff7e8;border-color:transparent}
+.dashboard .dash-navigation nav button[aria-current=page]{background:#452b40;color:#fff7e8}
+.dashboard .search-input,.dashboard .workspace-panel,.dashboard .watch-grid article{background:#fffcf7e8;border-color:var(--line)}
+.dashboard input,.dashboard textarea{color:#352331;background:#fffcf7;border-color:var(--line)}
+.dashboard input::placeholder,.dashboard textarea::placeholder{color:#83717d}
+.dashboard .settings-panel small,.dashboard .panel-header p,.dashboard .empty-state p{color:#72636d}
+.dashboard .status{color:#725021;background:#f5e6c8}
+.dashboard .toast{background:#452b40;color:#fff7e8}
+.dashboard .modal{background:#fffaf3;color:#352331;--cream:#352331;--gold:#91672e;--line:#65465028}
+.dashboard .modal input,.dashboard .modal textarea{background:#fffdf9;color:#352331}
+.dashboard .modal .button{background:#452b40;color:#fff7e8}
+.dashboard .modal p,.dashboard .modal label{color:#665260}
+.dashboard select,.modal select{-webkit-appearance:none;appearance:none;padding:13px 44px 13px 14px;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='m1 1 5 5 5-5' fill='none' stroke='%23d9bc82' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 16px center;background-size:12px 8px}
+.dashboard select{background-color:#fffcf7;color:#352331;border-color:var(--line);background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='m1 1 5 5 5-5' fill='none' stroke='%23665260' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")}
+.dashboard select option{background:#fffcf7;color:#352331}
+.site-header.on-dashboard:not(.menu-open){color:#452b40;background:#fffaf32b}
+.site-header.on-dashboard:not(.menu-open) .brand,.site-header.on-dashboard:not(.menu-open) .menu-toggle{color:#452b40}
+.site-header.on-dashboard:not(.menu-open) .menu-toggle{background:#fffaf3b3}
+@media(prefers-reduced-transparency:reduce){.dashboard .g3{--surface:#fffcf7}.dashboard .workspace-panel,.dashboard .search-input{background:#fffcf7}}
+
+/* Dashboard appearance is independent of the rest of the website. */
+.theme-toggle{min-height:44px;display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:0 15px;border:1px solid #65465028;border-radius:8px;background:#fffcf7d9;color:#452b40;font-size:12px;white-space:nowrap}
+.theme-toggle span:first-child{font-size:18px;line-height:1}
+.dashboard[data-theme=dark]{background:radial-gradient(ellipse at 75% 0%,#422233 0%,transparent 50%),radial-gradient(ellipse at 15% 38%,#422819 0%,transparent 52%),#170a13;color:#f8ecdc;--cream:#f8ecdc;--muted:#c3aeb1;--gold:#e6c886;--line:#e7c59632;color-scheme:dark}
+.dashboard[data-theme=dark] .g3{--accent-50:#422d28;--accent-100:#533927;--accent-200:#826443;--accent-300:#b8955c;--accent-400:#e4c788;--accent-500:#d8b568;--accent-600:#d7b577;--accent-700:#f2dba8;--surface:#2b1724;--surface-2:#412b38;--surface-3:#553b47;--ink:#fbf0e1;--ink-2:#dfced0;--ink-3:#bba7ad;--line:#e6c88830;--invert-bg:#edcf94;--invert-ink:#29131f;--n-300:#765962;--ok-fg:#a9d4b4;--bad-fg:#f2a5a2;--sh-1:0 5px 22px #0002;--sh-3:0 8px 28px #0005}
+.dashboard[data-theme=dark] .g3__c{border-color:#f1d4a31f}
+.dashboard[data-theme=dark] .g3__face{background:#694533}
+.dashboard[data-theme=dark] .g3__goal{color:#f2dba8}
+.dashboard[data-theme=dark] .g3__tk.brand-mark{color:#e6c886}
+.dashboard[data-theme=dark] .button{background:#e4c17f;color:#271320}
+.dashboard[data-theme=dark] .dash-navigation nav button[aria-current=page]{background:#e4c17f;color:#271320}
+.dashboard[data-theme=dark] .theme-toggle,.dashboard[data-theme=dark] select,.dashboard[data-theme=dark] input,.dashboard[data-theme=dark] textarea,.dashboard[data-theme=dark] .search-input,.dashboard[data-theme=dark] .workspace-panel,.dashboard[data-theme=dark] .watch-grid article{background-color:#2b1724;color:#f8ecdc;border-color:#e7c59632}
+.dashboard[data-theme=dark] select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='m1 1 5 5 5-5' fill='none' stroke='%23e6c886' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")}
+.dashboard[data-theme=dark] select option{background:#2b1724;color:#f8ecdc}
+.dashboard[data-theme=dark] input::placeholder,.dashboard[data-theme=dark] textarea::placeholder{color:#bba7ad}
+.dashboard[data-theme=dark] .settings-panel small,.dashboard[data-theme=dark] .panel-header p,.dashboard[data-theme=dark] .empty-state p{color:#cdbbc0}
+.dashboard[data-theme=dark] .modal{background:#291722;color:#f8ecdc;--cream:#f8ecdc;--gold:#e6c886;--line:#e7c59632}
+.dashboard[data-theme=dark] .modal input,.dashboard[data-theme=dark] .modal textarea,.dashboard[data-theme=dark] .modal select{background-color:#37212e;color:#f8ecdc}
+.dashboard[data-theme=dark] .modal p,.dashboard[data-theme=dark] .modal label{color:#e0d0d0}
+.dashboard[data-theme=dark] .modal .button{background:#e4c17f;color:#271320}
+.dashboard[data-theme=dark] .status{color:#f2dba8;background:#503826}
+body[data-dashboard-theme=dark] .site-header.on-dashboard:not(.menu-open),body[data-dashboard-theme=dark] .site-header.on-dashboard:not(.menu-open) .brand{color:#f8ecdc;background:transparent}
+body[data-dashboard-theme=dark] .site-header.on-dashboard:not(.menu-open) .menu-toggle{background:#35202d;color:#f8ecdc}
+@media(max-width:599px){.dash-controls .theme-toggle{flex:0 0 auto;padding-inline:12px}.dash-controls select{flex:1 1 130px}.dash-controls .button{flex:1 1 140px}.dashboard .dash-controls{justify-content:flex-start}}
+@media(prefers-reduced-transparency:reduce){.dashboard[data-theme=dark] .g3{--surface:#2b1724}.dashboard[data-theme=dark] .workspace-panel,.dashboard[data-theme=dark] .search-input{background:#2b1724}}

@@ -1,0 +1,56 @@
+const routes = [
+  { method: 'GET', pattern: /^health$/ },
+  { method: 'GET', pattern: /^v1\/$/ },
+  { method: 'GET', pattern: /^v1\/x402\/supported$/ },
+  { method: 'GET', pattern: /^v1\/tokens\/(solana|rhc|base|bnb)\/[A-Za-z0-9]+$/ },
+  { method: 'POST', pattern: /^v1\/(quote|build\/trade|launch\/quote|build\/launch)$/ },
+  { method: 'POST', pattern: /^v1\/x402\/(verify|settle)$/ },
+]
+
+export default async function handler(request, response) {
+  const path = new URL(request.url, 'http://localhost').pathname
+    .replace(/^\/api\/slipway\/?/, '')
+  const method = request.method || 'GET'
+
+  if (!routes.some((route) => route.method === method && route.pattern.test(path))) {
+    return response.status(404).json({ error: 'Slipway API route not found' })
+  }
+
+  const configuredUrl = process.env.SLIPWAY_API_URL?.trim()
+  if (!configuredUrl) {
+    return response.status(503).json({ error: 'Slipway API is not configured on this deployment' })
+  }
+
+  let target
+  try {
+    const root = new URL(configuredUrl)
+    if (!['http:', 'https:'].includes(root.protocol)) throw new Error('invalid protocol')
+    root.pathname = `${root.pathname.replace(/\/$/, '')}/${path}`
+    root.search = new URL(request.url, 'http://localhost').search
+    target = root
+  } catch {
+    return response.status(503).json({ error: 'Slipway API configuration is invalid' })
+  }
+
+  const headers = new Headers({ accept: 'application/json' })
+  if (request.headers['content-type']) headers.set('content-type', request.headers['content-type'])
+  if (request.headers.authorization) headers.set('authorization', request.headers.authorization)
+
+  try {
+    const upstream = await fetch(target, {
+      method,
+      headers,
+      body: method === 'GET' ? undefined : typeof request.body === 'string'
+        ? request.body
+        : JSON.stringify(request.body ?? {}),
+      signal: AbortSignal.timeout(25_000),
+    })
+    response.status(upstream.status)
+    response.setHeader('content-type', upstream.headers.get('content-type') || 'application/json')
+    const cacheControl = upstream.headers.get('cache-control')
+    if (cacheControl) response.setHeader('cache-control', cacheControl)
+    return response.send(Buffer.from(await upstream.arrayBuffer()))
+  } catch {
+    return response.status(502).json({ error: 'Slipway API could not be reached' })
+  }
+}

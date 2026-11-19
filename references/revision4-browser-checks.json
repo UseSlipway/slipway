@@ -1,0 +1,145 @@
+{
+  "platformChecks": [
+    {
+      "cardIcon": 0,
+      "cardTransform": "none",
+      "featureColumns": "551px",
+      "headerPosition": "fixed",
+      "heroColumns": "551px",
+      "scrollWidth": 599,
+      "width": 599
+    },
+    {
+      "cardIcon": 0,
+      "cardTransform": "matrix(1.00366, 0, 0, 1.00366, 0, -241.881)",
+      "featureColumns": "552px",
+      "headerPosition": "fixed",
+      "heroColumns": "552px",
+      "scrollWidth": 600,
+      "width": 600
+    },
+    {
+      "cardIcon": 0,
+      "cardTransform": "matrix(1.00366, 0, 0, 1.00366, 0, -241.881)",
+      "featureColumns": "718.859px",
+      "headerPosition": "fixed",
+      "heroColumns": "718.859px",
+      "scrollWidth": 768,
+      "width": 768
+    },
+    {
+      "cardIcon": 0,
+      "cardTransform": "matrix(0.853748, 0, 0, 0.853748, 0, -205.753)",
+      "featureColumns": "466.945px 466.953px",
+      "headerPosition": "fixed",
+      "heroColumns": "491.523px 442.375px",
+      "scrollWidth": 1024,
+      "width": 1024
+    },
+    {
+      "cardIcon": 0,
+      "cardTransform": "matrix(0.784278, 0, 0, 0.784278, 0, -189.011)",
+      "featureColumns": "428.641px 428.648px",
+      "headerPosition": "fixed",
+      "heroColumns": "451.203px 406.086px",
+      "scrollWidth": 940,
+      "width": 940
+    },
+    {
+      "cardIcon": 0,
+      "cardTransform": "matrix(1, 0, 0, 1, 0, -241)",
+      "featureColumns": "546.742px 546.75px",
+      "headerPosition": "fixed",
+      "heroColumns": "575.516px 517.977px",
+      "scrollWidth": 1199,
+      "width": 1199
+    },
+    {
+      "cardIcon": 0,
+      "cardTransform": "none",
+      "featureColumns": "none",
+      "headerPosition": "absolute",
+      "heroColumns": "none",
+      "scrollWidth": 1200,
+      "width": 1200
+    },
+    {
+      "cardIcon": 0,
+      "cardTransform": "none",
+      "featureColumns": "none",
+      "headerPosition": "absolute",
+      "heroColumns": "none",
+      "scrollWidth": 2560,
+      "width": 2560
+    }
+  ],
+  "dashboardChecks": [
+    {
+      "canvas": [
+        320,
+        740
+      ],
+      "columns": "290px",
+      "images": true,
+      "scrollWidth": 320,
+      "selectPadding": "44px",
+      "width": 320
+    },
+    {
+      "canvas": [
+        768,
+        1024
+      ],
+      "columns": "360px 360px",
+      "images": true,
+      "scrollWidth": 768,
+      "selectPadding": "44px",
+      "width": 768
+    },
+    {
+      "canvas": [
+        1440,
+        1000
+      ],
+      "columns": "334.5px 334.5px 334.5px 334.5px",
+      "images": true,
+      "scrollWidth": 1440,
+      "selectPadding": "44px",
+      "width": 1440
+    },
+    {
+      "canvas": [
+        2560,
+        1440
+      ],
+      "columns": "446.5px 446.5px 446.5px 446.5px",
+      "images": true,
+      "scrollWidth": 2560,
+      "selectPadding": "44px",
+      "width": 2560
+    }
+  ],
+  "routeChecks": [
+    {
+      "images": true,
+      "path": "/networks",
+      "ready": "true",
+      "scrollWidth": 1440,
+      "width": 1440
+    },
+    {
+      "images": true,
+      "path": "/developers",
+      "ready": "true",
+      "scrollWidth": 1440,
+      "width": 1440
+    },
+    {
+      "images": true,
+      "path": "/platform",
+      "ready": "true",
+      "scrollWidth": 1440,
+      "width": 1440
+    }
+  ]
+}
