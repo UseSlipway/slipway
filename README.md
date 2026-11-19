@@ -57,9 +57,9 @@ The backend applies SQL migrations at startup. Set the relevant chain RPC and da
 
 ## x402 payments
 
-The backend runs its x402 v2 exact-payment facilitator in-process for Robinhood Chain (`eip155:4663`) and Base (`eip155:8453`), exposed at `/v1/x402/supported`, `/v1/x402/verify`, and `/v1/x402/settle`. Verify and settle require the configured `X402_FACILITATOR_API_KEY` as a bearer token, and only accept exact payments in the configured USDG/USDC to Slipway pay-to addresses. The facilitator uses the x402 EVM implementation and does not need a separate `X402_FACILITATOR_URL`. `X402_ENABLED` remains `false` until the dedicated facilitator signer is funded for gas on both chains. Codex is the planned discovery input, checked against chain state.
+The backend runs its x402 v2 exact-payment facilitator in-process for Robinhood Chain (`eip155:4663`) and Base (`eip155:8453`), exposed at `/v1/x402/supported`, `/v1/x402/verify`, and `/v1/x402/settle`. Verify and settle require the configured `X402_FACILITATOR_API_KEY` as a bearer token, and only accept exact payments in the configured USDG/USDC to Slipway pay-to addresses. The facilitator uses the x402 EVM implementation and does not need a separate `X402_FACILITATOR_URL`. The facilitator signer is funded on both chains; `X402_ENABLED` remains `false` until deliberately enabled. Codex is the planned discovery input, checked against chain state.
 
-`SLIPWAY_RHC_FEE_ROUTER_ADDRESS` and `SLIPWAY_BASE_FEE_ROUTER_ADDRESS` are unrelated to x402. They identify the separate per-chain EVM trade-fee router contracts used by built trades to collect Slipway and integrator fees on-chain. They stay empty until deployed. The router is an initial implementation and has not been audited.
+`SLIPWAY_RHC_FEE_ROUTER_ADDRESS` and `SLIPWAY_BASE_FEE_ROUTER_ADDRESS` are unrelated to x402. They identify the separate per-chain EVM trade-fee router contracts used by built trades to collect Slipway and integrator fees on-chain. The initial routers are deployed on Robinhood Chain and Base; deployment details are in [`contracts/deployments`](contracts/deployments/). The router is an initial implementation and has not been audited.
 
 ## Dual repository sync
 
@@ -71,4 +71,4 @@ TanStack Start, React, TypeScript, Vite, Tailwind CSS, Bun, Express, PostgreSQL,
 
 ## Status
 
-This repository is an initial scaffold. Product behavior, launchpad adapters, MCP tools, SDK packages, x402 payments, graduation watchers, and production contracts still need implementation. See the private `technical-docs/Slipway_Overview.md` for the dated product brief and its open verification items.
+This repository is an initial scaffold. Product behavior, launchpad adapters, MCP tools, SDK packages, x402 production readiness, graduation watchers, and production contract review still need implementation. See the private `technical-docs/Slipway_Overview.md` for the dated product brief and its open verification items.

@@ -1,0 +1,11 @@
+{
+  "chainId": 8453,
+  "chain": "Base",
+  "contract": "SlipwayFeeRouter",
+  "address": "0x56d15a85d9f4ecec16c002dc5a02ef6b94c215c5",
+  "feeRecipient": "0x7ad8085132ee3c945e06f618d64eb374664b5054",
+  "deployer": "0xdbd635554a2ca93afabe90d196830bc0eb55933f",
+  "transactionHash": "0x47f3e0b7a785a831e82f4649799c75ad286c88637d8626fa366887cdf43b8795",
+  "blockNumber": 59596647,
+  "verifiedOnChain": true
+}
