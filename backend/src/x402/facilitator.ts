@@ -15,6 +15,10 @@ const resourceServer = new x402ResourceServer({
 });
 let configured = false;
 
+export function isX402Enabled(): boolean {
+  return process.env.X402_ENABLED === "true";
+}
+
 function required(name: string): string {
   const value = process.env[name]?.trim();
   if (!value) throw new Error(`${name} must be configured when X402_ENABLED=true`);
@@ -66,13 +70,22 @@ async function registerEvmNetwork(options: {
 
 /** Register Slipway's exact-payment facilitator for RHC and Base in-process. */
 export async function configureX402Facilitator(): Promise<void> {
-  if (process.env.X402_ENABLED !== "true" || configured) return;
+  if (!isX402Enabled() || configured) return;
 
   const rawPrivateKey = required("X402_FACILITATOR_PRIVATE_KEY");
   if (!/^0x[0-9a-fA-F]{64}$/.test(rawPrivateKey)) {
     throw new Error("X402_FACILITATOR_PRIVATE_KEY must be a 32-byte 0x-prefixed EVM private key");
   }
   const account = privateKeyToAccount(rawPrivateKey as `0x${string}`);
+  for (const [variable, label] of [
+    ["X402_RHC_USDG_ADDRESS", "RHC USDG"],
+    ["X402_BASE_USDC_ADDRESS", "Base USDC"],
+    ["X402_RHC_PAY_TO", "RHC pay-to"],
+    ["X402_BASE_PAY_TO", "Base pay-to"]
+  ]) {
+    const value = required(variable);
+    if (!/^0x[0-9a-fA-F]{40}$/.test(value)) throw new Error(`${variable} must be an EVM address (${label})`);
+  }
 
   await registerEvmNetwork({
     name: "Robinhood Chain",
