@@ -22,7 +22,8 @@ Slipway is an execution interface and API for token launches and trading across 
 | `/backend` | Bun, Express, TypeScript API and PostgreSQL migrations. |
 | `/contracts` | Foundry EVM contracts and deployment scripts. Solana programs are out of scope for this workspace. |
 | `/scripts/sync-public.py` | Publishes sanitized `main` history to the public repository with the UseSlipway identity. |
-| `/.github/workflows` | Frontend, backend, and contract build checks plus optional Render deploy hook. |
+| `/.github/workflows/backend.yml` | Backend check, GHCR image publish, then optional Render deploy hook. |
+| `/.github/workflows/ci.yml` | Foundry contract build. Frontend builds and deploys through Vercel. |
 
 ## Getting started
 
@@ -46,7 +47,7 @@ The backend applies SQL migrations at startup. Set the relevant chain RPC and da
 ## Deployment
 
 - **Frontend:** Vercel. Import the repository and use the root directory. Build: `npm run build`; output: `dist`. The `/api/slipway` serverless function proxies API calls. No `vercel.json` is required.
-- **Backend:** Render, rooted at `backend`, using Bun. Build: `bun install --frozen-lockfile && bun run check`. Start: `bun run start`. Configure `DATABASE_URL`, RPC endpoints, and provider credentials as service environment variables. CI can call `RENDER_DEPLOY_HOOK_URL` when configured.
+- **Backend:** Render pulls `ghcr.io/notadeveloper7/slipway-backend:latest`. The backend workflow publishes the image on private `main` and then calls `RENDER_DEPLOY_HOOK_URL`. Configure the Render image service and GHCR credentials, then add the deploy hook as a GitHub Actions secret. Set the backend environment variables described in [`backend/.env.example`](backend/.env.example). See [`backend/DEPLOYMENT.md`](backend/DEPLOYMENT.md).
 - **Contracts:** Foundry contracts live in `/contracts`; the initial fee routers are deployed to Robinhood Chain and Base. They have not been audited.
 
 ## x402 payments
@@ -61,7 +62,7 @@ The private repository is the source of truth on `main` (`origin`). `python3 scr
 
 ## Stack
 
-TanStack Start, React, TypeScript, Vite, Tailwind CSS, Bun, Express, PostgreSQL, Foundry, Solidity, Solana transaction builders, and MCP.
+React, Vite, Bun, Express, TypeScript, PostgreSQL, Foundry, Solidity, Solana transaction builders, and MCP.
 
 ## Status
 

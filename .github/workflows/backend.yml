@@ -1,0 +1,64 @@
+name: Backend
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  check:
+    if: github.repository == 'NotADeveloper7/slipway'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6
+        with:
+          bun-version: "1.4.2"
+      - run: bun install --frozen-lockfile --ignore-scripts
+      - run: bun run check
+      - name: Build production image
+        run: docker build --build-arg APP_COMMIT_SHA=${{ github.sha }} --tag slipway-backend:ci .
+
+  publish:
+    needs: check
+    if: github.repository == 'NotADeveloper7/slipway' && github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@9780b0c442fbb1117ed29e0efdff1e18412f7567
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Publish backend image
+        uses: docker/build-push-action@ca877d9245402d1537745e0e356eab47c3520991
+        with:
+          context: ./backend
+          push: true
+          build-args: |
+            APP_COMMIT_SHA=${{ github.sha }}
+          tags: |
+            ghcr.io/notadeveloper7/slipway-backend:latest
+            ghcr.io/notadeveloper7/slipway-backend:${{ github.sha }}
+
+  deploy:
+    needs: publish
+    if: github.repository == 'NotADeveloper7/slipway' && github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Render deployment when configured
+        env:
+          RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+        run: |
+          if [ -z "$RENDER_DEPLOY_HOOK_URL" ]; then
+            echo "RENDER_DEPLOY_HOOK_URL is not set; skipping Render deployment."
+            exit 0
+          fi
+          curl --fail --silent --show-error --max-time 30 --output /dev/null --request POST "$RENDER_DEPLOY_HOOK_URL"
