@@ -2,6 +2,8 @@
 
 Slipway is an interface for discovering tokens and preparing on-chain trades across multiple networks. It builds unsigned transactions for your wallet to review and sign; Slipway never needs your wallet’s private key.
 
+**Links:** [Website](https://tryslipway.com) · [Developer docs](https://tryslipway.com/developers) · [GitHub](https://github.com/UseSlipway/slipway) · [X](https://x.com/slipwaytech)
+
 ## Features
 
 - Explore token markets and pool data.
