@@ -6,7 +6,7 @@ The backend is packaged as a Docker image and deployed from GHCR. CI is scoped t
 
 1. In Render, create a Docker image service for `ghcr.io/useslipway/slipway-backend:latest`. The package is private by default. Configure GHCR registry access in Render, or make the package public if that is the intended distribution policy.
 2. Configure the service's environment variables from `backend/.env.example`. `DATABASE_URL` is required: the process applies database migrations before it starts listening. Render supplies `PORT`.
-3. Set the health check path to `/health/`. This is a process liveness check; it does not check PostgreSQL or RPC readiness.
+3. Set the liveness check path to `/health/`. `/ready/` checks PostgreSQL, both RPCs, deployed Uniswap v3 factories, and fee-router addresses.
 4. Create a Render deploy hook for the image service and save its URL as the `RENDER_DEPLOY_HOOK_URL` Actions secret in the public GitHub repository `UseSlipway/slipway`.
 
 ## Each deployment
@@ -15,4 +15,4 @@ On updates to `UseSlipway/slipway` `main`, `.github/workflows/backend.yml` insta
 
 The image includes the commit SHA in `APP_COMMIT_SHA`, exposed by `GET /health/` for deployment identification. The workflow does not configure or change the Render service's image source; configure the service as described above before enabling its deploy hook.
 
-The root frontend CI is intentionally not part of this backend workflow. Vercel handles frontend builds and deployment. `ci.yml` builds the Foundry contracts separately.
+The root frontend CI is intentionally not part of this backend workflow. Vercel handles frontend builds and deployment. `ci.yml` builds the Foundry contracts separately. The API's current on-chain flow resolves Uniswap v3 pools and returns exact-input quotes plus unsigned approve-and-swap payloads through the deployed Slipway fee router.

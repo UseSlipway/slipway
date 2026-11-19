@@ -24,6 +24,7 @@ function apiRoot(endpoint) {
   if (typeof window !== 'undefined' && base.origin !== window.location.origin) {
     throw new Error('Use the same-origin /api/slipway endpoint so requests stay on Slipway’s server stack.')
   }
+  base.pathname = base.pathname.replace(/\/+$/, '')
   if (base.pathname.endsWith('/v1')) base.pathname = base.pathname.slice(0, -3)
   if (typeof window !== 'undefined' && base.pathname.replace(/\/$/, '') !== '/api/slipway') {
     throw new Error('Use /api/slipway as the frontend API endpoint.')
@@ -59,6 +60,7 @@ export function quoteRequest(values, settings) {
     chain: chainIds[values.chain],
     token: values.token,
     side: values.side.toLowerCase(),
+    ...(values.quoteAsset ? { quoteAsset: values.quoteAsset } : {}),
     amount: values.amount,
     amountType: 'in',
     slippageBps: Math.round(settings.slippage * 100),
