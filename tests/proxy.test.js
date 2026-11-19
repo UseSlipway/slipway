@@ -40,6 +40,26 @@ test('same-origin proxy forwards only allowed paths to the server-configured bac
   assert.equal(res.headers['cache-control'], 'no-store')
 })
 
+test('proxy allows the bounded market data routes', async (t) => {
+  const originalFetch = globalThis.fetch
+  const originalUrl = process.env.SLIPWAY_API_URL
+  process.env.SLIPWAY_API_URL = 'https://backend.example'
+  t.after(() => {
+    globalThis.fetch = originalFetch
+    if (originalUrl === undefined) delete process.env.SLIPWAY_API_URL
+    else process.env.SLIPWAY_API_URL = originalUrl
+  })
+  let target
+  globalThis.fetch = async (url) => {
+    target = String(url)
+    return new Response(JSON.stringify({ data: [] }), { status: 200 })
+  }
+  const res = mockResponse()
+  await handler({ url: '/api/slipway/v1/market/networks/base/pools/0x1234567890123456789012345678901234567890/ohlcv/hour?aggregate=1', method: 'GET', headers: {} }, res)
+  assert.equal(res.statusCode, 200)
+  assert.equal(target, 'https://backend.example/v1/market/networks/base/pools/0x1234567890123456789012345678901234567890/ohlcv/hour?aggregate=1')
+})
+
 test('proxy rejects unknown routes and methods before making an upstream request', async (t) => {
   const originalFetch = globalThis.fetch
   const originalUrl = process.env.SLIPWAY_API_URL

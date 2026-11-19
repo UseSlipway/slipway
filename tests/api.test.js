@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { chainIds, checkBackend, isTokenAddress, quoteRequest, request, resolveToken } from '../src/api.js'
+import { chainIds, checkBackend, isTokenAddress, marketRequest, quoteRequest, request, resolveToken } from '../src/api.js'
 
 const address = '0x000000000000000000000000000000000000dead'
 
@@ -63,6 +63,22 @@ test('health checks use the same-origin API and validate the response', async (t
   const status = await checkBackend('https://service.example')
   assert.equal(target, 'https://service.example/health')
   assert.equal(status.status, 'ok')
+})
+
+test('market data requests use the same-origin API path and support cancellation', async (t) => {
+  const originalFetch = globalThis.fetch
+  t.after(() => { globalThis.fetch = originalFetch })
+  let target
+  globalThis.fetch = async (url, options) => {
+    target = String(url)
+    assert.equal(options.credentials, 'omit')
+    assert.equal(options.method, 'GET')
+    return new Response(JSON.stringify({ data: [] }), { status: 200 })
+  }
+  const result = await marketRequest('https://service.example', 'networks/base/trending_pools?include=base_token%2Cquote_token')
+  assert.deepEqual(result.data, [])
+  assert.equal(target, 'https://service.example/v1/market/networks/base/trending_pools?include=base_token%2Cquote_token')
+  await assert.rejects(marketRequest('https://service.example', '../admin'), /market data path/)
 })
 
 test('token resolution encodes the address and validates response fields', async (t) => {

@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import type { AddressInfo } from "node:net";
 import { app } from "../src/app";
+import { setMarketFetcher } from "../src/routes/market";
 
 describe("backend API surface", () => {
   let server: ReturnType<typeof app.listen>;
@@ -56,5 +57,28 @@ describe("backend API surface", () => {
       body: JSON.stringify({ chain: "base", token: "0x000000000000000000000000000000000000dead", side: "buy", amount: "1", quoteAsset: "BNB", slippageBps: 50 })
     });
     expect(response.status).toBe(400);
+  });
+
+  test("proxies approved market requests to the fixed provider origin", async () => {
+    let requested = "";
+    setMarketFetcher(async (input) => {
+      requested = String(input);
+      return new Response(JSON.stringify({ data: [] }), { status: 200, headers: { "content-type": "application/json" } });
+    });
+    try {
+      const response = await fetch(`${origin}/v1/market/networks/base/trending_pools?include=base_token%2Cquote_token`);
+      expect(response.status, await response.clone().text()).toBe(200);
+      expect(response.headers.get("cache-control")).toBe("public, max-age=15");
+      expect(requested).toBe("https://api.geckoterminal.com/api/v2/networks/base/trending_pools?include=base_token%2Cquote_token");
+    } finally {
+      setMarketFetcher();
+    }
+  });
+
+  test("rejects arbitrary market routes and upstream query parameters", async () => {
+    const unknown = await fetch(`${origin}/v1/market/proxy/https://example.com`);
+    const unsafeQuery = await fetch(`${origin}/v1/market/search/pools?query=token&url=https://example.com`);
+    expect(unknown.status).toBe(400);
+    expect(unsafeQuery.status).toBe(400);
   });
 });

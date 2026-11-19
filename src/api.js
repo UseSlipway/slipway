@@ -94,6 +94,27 @@ export async function checkBackend(endpoint) {
   return readJson(response)
 }
 
+export async function marketRequest(endpoint, path, signal) {
+  if (typeof path !== 'string' || path.startsWith('/') || path.includes('..')) {
+    throw new Error('Choose a valid market data path.')
+  }
+  const root = apiRoot(endpoint)
+  const timeout = AbortSignal.timeout(15_000)
+  const requestSignal = signal && typeof AbortSignal.any === 'function'
+    ? AbortSignal.any([signal, timeout])
+    : timeout
+  const response = await fetch(`${root}/v1/market/${path}`, {
+    method: 'GET',
+    credentials: 'omit',
+    headers: { Accept: 'application/json' },
+    signal: requestSignal,
+  }).catch((error) => {
+    if (error.name === 'AbortError') throw error
+    throw new Error(error.name === 'TimeoutError' ? 'Market data took too long to respond.' : 'Could not reach Slipway market data.')
+  })
+  return readJson(response)
+}
+
 export async function resolveToken(endpoint, chain, address) {
   if (!Object.hasOwn(chainIds, chain) || !isTokenAddress(address, chain)) {
     throw new Error('Enter a valid public token address for the selected chain.')
