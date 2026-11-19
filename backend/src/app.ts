@@ -6,6 +6,7 @@ import { apiRouter } from "./routes/v1";
 import { tokenRouter } from "./routes/tokens";
 import { tradeRouter } from "./routes/trades";
 import { marketRouter } from "./routes/market";
+import { transactionRouter } from "./routes/transactions";
 import { x402Router } from "./routes/x402";
 
 export const app = express();
@@ -69,6 +70,7 @@ app.get("/v1/chains", (_request, response) => {
 app.use("/v1/tokens", tokenRouter);
 app.use("/v1", tradeRouter);
 app.use("/v1/market", marketRouter);
+app.use("/v1/transactions", transactionRouter);
 app.use("/v1/x402", x402Router);
 
 app.use((error: unknown, request: express.Request, response: express.Response, _next: express.NextFunction) => {

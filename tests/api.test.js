@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { chainIds, checkBackend, isTokenAddress, marketRequest, quoteRequest, request, resolveToken } from '../src/api.js'
+import { chainIds, checkBackend, getTransactionStatus, isTokenAddress, marketRequest, quoteRequest, request, resolveToken, submitTransaction } from '../src/api.js'
 
 const address = '0x000000000000000000000000000000000000dead'
 
@@ -79,6 +79,25 @@ test('market data requests use the same-origin API path and support cancellation
   assert.deepEqual(result.data, [])
   assert.equal(target, 'https://service.example/v1/market/networks/base/trending_pools?include=base_token%2Cquote_token')
   await assert.rejects(marketRequest('https://service.example', '../admin'), /market data path/)
+})
+
+test('transaction submission and tracking validate inputs and stay on the same-origin API', async (t) => {
+  const originalFetch = globalThis.fetch
+  t.after(() => { globalThis.fetch = originalFetch })
+  const seen = []
+  globalThis.fetch = async (url, options) => {
+    seen.push({ url: String(url), method: options.method, credentials: options.credentials, body: options.body })
+    return new Response(JSON.stringify({ status: 'submitted', hash: `0x${'a'.repeat(64)}` }), { status: 202 })
+  }
+  const hash = `0x${'a'.repeat(64)}`
+  await submitTransaction('https://service.example', 'base', '0x0201')
+  await getTransactionStatus('https://service.example', 'base', hash)
+  assert.deepEqual(seen.map(({ url, method, credentials }) => ({ url, method, credentials })), [
+    { url: 'https://service.example/v1/transactions/submit', method: 'POST', credentials: 'omit' },
+    { url: `https://service.example/v1/transactions/base/${hash}`, method: 'GET', credentials: 'omit' },
+  ])
+  await assert.rejects(submitTransaction('https://service.example', 'solana', '0x0201'), /supported chain/)
+  await assert.rejects(getTransactionStatus('https://service.example', 'base', 'bad'), /valid transaction hash/)
 })
 
 test('token resolution encodes the address and validates response fields', async (t) => {

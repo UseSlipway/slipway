@@ -81,4 +81,21 @@ describe("backend API surface", () => {
     expect(unknown.status).toBe(400);
     expect(unsafeQuery.status).toBe(400);
   });
+
+  test("validates transaction submission and status requests before RPC access", async () => {
+    const invalidSubmission = await fetch(`${origin}/v1/transactions/submit`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ chain: "base", signedTransaction: "0xnot-a-signed-transaction" })
+    });
+    const invalidChain = await fetch(`${origin}/v1/transactions/submit`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ chain: "solana", signedTransaction: "0x02" })
+    });
+    const invalidHash = await fetch(`${origin}/v1/transactions/base/not-a-hash`);
+    expect(invalidSubmission.status).toBe(400);
+    expect(invalidChain.status).toBe(400);
+    expect(invalidHash.status).toBe(400);
+  });
 });

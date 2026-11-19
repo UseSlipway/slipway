@@ -115,6 +115,29 @@ export async function marketRequest(endpoint, path, signal) {
   return readJson(response)
 }
 
+export async function submitTransaction(endpoint, chain, signedTransaction) {
+  if (!['rhc', 'base'].includes(chain) || typeof signedTransaction !== 'string' || !/^0x(?:[a-fA-F0-9]{2}){1,100000}$/.test(signedTransaction)) {
+    throw new Error('Provide a supported chain and signed EVM transaction.')
+  }
+  return request(endpoint, 'transactions/submit', { chain, signedTransaction })
+}
+
+export async function getTransactionStatus(endpoint, chain, hash) {
+  if (!['rhc', 'base'].includes(chain) || typeof hash !== 'string' || !/^0x[a-fA-F0-9]{64}$/.test(hash)) {
+    throw new Error('Provide a supported chain and valid transaction hash.')
+  }
+  const root = apiRoot(endpoint)
+  const response = await fetch(`${root}/v1/transactions/${chain}/${hash}`, {
+    method: 'GET',
+    credentials: 'omit',
+    headers: { Accept: 'application/json' },
+    signal: AbortSignal.timeout(15_000),
+  }).catch((error) => {
+    throw new Error(error.name === 'TimeoutError' ? 'Transaction status took too long to respond.' : 'Could not reach Slipway transaction tracking.')
+  })
+  return readJson(response)
+}
+
 export async function resolveToken(endpoint, chain, address) {
   if (!Object.hasOwn(chainIds, chain) || !isTokenAddress(address, chain)) {
     throw new Error('Enter a valid public token address for the selected chain.')
