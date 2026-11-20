@@ -19,6 +19,38 @@ function jsonSafe(value: unknown): unknown {
   return JSON.parse(JSON.stringify(value, (_key, child) => typeof child === "bigint" ? child.toString() : child));
 }
 
+function errorSummary(error: unknown) {
+  const value = error instanceof Error ? error : new Error(String(error));
+  const cause = value.cause instanceof Error ? value.cause : undefined;
+  const urls = [process.env.RHC_RPC_URL, process.env.BASE_RPC_URL].filter((url): url is string => Boolean(url));
+  const redact = (message: string) => urls.reduce((clean, url) => clean.replaceAll(url, "[RPC_URL]"), message).replace(/https?:\/\/\S+/g, "[RPC_URL]").slice(0, 300);
+  return {
+    errorType: value.name,
+    message: redact((value as Error & { shortMessage?: string }).shortMessage ?? value.message),
+    causeType: cause?.name,
+    causeMessage: cause ? redact((cause as Error & { shortMessage?: string }).shortMessage ?? cause.message) : undefined,
+    rpcCode: (value as Error & { code?: number | string }).code
+  };
+}
+
+async function getLogsWithRangeFallback(source: typeof sources[number], event: typeof ponsLaunch | typeof ponsGraduation | typeof clankerLaunch | typeof v4Initialize, fromBlock: bigint, toBlock: bigint): Promise<Log[]> {
+  const client = getPublicClient(getChainConfig(source.chain)!);
+  try {
+    return await client.getLogs({ address: source.address, event, fromBlock, toBlock }) as Log[];
+  } catch (error) {
+    if (fromBlock < toBlock) {
+      const midpoint = fromBlock + (toBlock - fromBlock) / 2n;
+      return [
+        ...await getLogsWithRangeFallback(source, event, fromBlock, midpoint),
+        ...await getLogsWithRangeFallback(source, event, midpoint + 1n, toBlock)
+      ];
+    }
+    const failure = new Error(`eth_getLogs failed for ${source.id} at block ${fromBlock}`, { cause: error });
+    Object.assign(failure, { source: source.id, chain: source.chain, fromBlock: fromBlock.toString(), toBlock: toBlock.toString() });
+    throw failure;
+  }
+}
+
 async function scanSource(source: typeof sources[number]) {
   const config = getChainConfig(source.chain)!;
   const client = getPublicClient(config);
@@ -40,7 +72,7 @@ async function scanSource(source: typeof sources[number]) {
   const toBlock = fromBlock + 499n < safeHead ? fromBlock + 499n : safeHead;
   const logsByType = await Promise.all(source.events.map(async ({ event, type }) => ({
     type,
-    logs: await client.getLogs({ address: source.address, event, fromBlock, toBlock }),
+    logs: await getLogsWithRangeFallback(source, event, fromBlock, toBlock),
   })));
   for (const { type, logs } of logsByType) {
     for (const log of logs as Log[]) {
@@ -64,7 +96,13 @@ export function startEventIndexer() {
     try {
       for (const source of sources) await scanSource(source);
     } catch (error) {
-      console.error(JSON.stringify({ event: "event_indexer_error", errorType: error instanceof Error ? error.name : "unknown" }));
+      const details = errorSummary(error);
+      console.error(JSON.stringify({ event: "event_indexer_error", ...details,
+        source: error && typeof error === "object" && "source" in error ? error.source : undefined,
+        chain: error && typeof error === "object" && "chain" in error ? error.chain : undefined,
+        fromBlock: error && typeof error === "object" && "fromBlock" in error ? error.fromBlock : undefined,
+        toBlock: error && typeof error === "object" && "toBlock" in error ? error.toBlock : undefined
+      }));
     } finally {
       setTimeout(poll, 3_000).unref?.();
     }

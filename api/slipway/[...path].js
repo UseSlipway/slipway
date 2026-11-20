@@ -39,6 +39,11 @@ export default async function handler(request, response) {
   const headers = new Headers({ accept: 'application/json' })
   if (request.headers['content-type']) headers.set('content-type', request.headers['content-type'])
   if (request.headers.authorization) headers.set('authorization', request.headers.authorization)
+  if (path !== 'health' && path !== 'health/') {
+    const apiKey = process.env.API_KEY?.trim()
+    if (!apiKey) return response.status(503).json({ error: 'Slipway API authentication is not configured on this deployment' })
+    headers.set('x-api-key', apiKey)
+  }
 
   try {
     const upstream = await fetch(target, {

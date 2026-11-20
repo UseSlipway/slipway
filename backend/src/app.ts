@@ -1,5 +1,6 @@
 import express from "express";
 import { randomUUID } from "node:crypto";
+import { timingSafeEqual } from "node:crypto";
 import { publicChainConfig, getChainConfig } from "./chains/config";
 import { healthRouter } from "./routes/health";
 import { apiRouter } from "./routes/v1";
@@ -32,6 +33,23 @@ app.use((request, response, next) => {
   next();
 });
 app.use("/health", healthRouter);
+app.use((request, response, next) => {
+  const pathname = new URL(request.originalUrl, "http://localhost").pathname;
+  if (pathname === "/health" || pathname === "/health/") return next();
+  const configured = process.env.SERVER_API_KEY;
+  if (!configured) {
+    response.status(503).json({ error: "API authentication is not configured" });
+    return;
+  }
+  const supplied = request.header("x-api-key") ?? "";
+  const expectedBytes = Buffer.from(configured);
+  const suppliedBytes = Buffer.from(supplied);
+  if (suppliedBytes.length !== expectedBytes.length || !timingSafeEqual(suppliedBytes, expectedBytes)) {
+    response.status(401).json({ error: "API key is invalid or missing" });
+    return;
+  }
+  next();
+});
 app.get("/ready/", async (_request, response) => {
   const checks: Record<string, "ok" | "unavailable"> = {};
   try {
