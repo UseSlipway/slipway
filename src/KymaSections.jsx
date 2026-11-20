@@ -3,6 +3,12 @@ import React, {useEffect, useRef, useState} from 'react';
 import {Link, Icon, Socials, RollText, PixelArrow} from './App';
 import {Ink, Label, WipeImage, Fade, NumberRoll, WordQuote, PriceDecode, useSeen, reducedMotion} from './KymaMotion';
 
+const landingChains=[
+  {slug:'robinhood',name:'Robinhood Chain',status:'Supported'},
+  {slug:'base',name:'Base',status:'Supported'},
+  {slug:'bnb-chain',name:'BNB Chain',status:'Coming soon'}
+];
+
 export function CTA({to='/dashboard', children='Open dashboard'}) {
   return <Link to={to} className="k-cta"><span>{children}</span><PixelArrow/></Link>;
 }
@@ -12,7 +18,7 @@ export function SectionHead({n, label, text, intro, centered=false}) {
 
 function Stat({value,label,index}){const[ref,seen]=useSeen(.5);return <div ref={ref} className={'k-stat '+(seen?'k-seen':'')} style={{'--level':index}}><span>{value}</span><span className="k-mono">{label}</span><div className="k-stat-bars">{Array.from({length:6+index*3},(_,j)=><i key={j} style={{'--bar-delay':(5+index*3-j)*.05+'s'}}/>)}</div></div>}
 export function Introduction() {
-  return <><div className="k-chains cream">{chains.map(([slug,name],i)=><Fade key={name} delay={i*.1}><BrandLogo name={slug} label={name}/></Fade>)}</div>
+  return <><div className="k-chains cream" aria-label="Supported and upcoming chains">{landingChains.map(({slug,name,status},i)=><Fade key={slug} delay={i*.1}><div className="k-chain-brand"><BrandLogo name={slug} label={name}/><span>{status}</span></div></Fade>)}</div>
   <section id="introduction" className="k-section k-who cream"><div className="k-container">
     <Label n="02">ONE WAY IN</Label><Ink scroll text={'YOUR IDEAS SHOULD MOVE FREELY.\nYOUR TOOLS SHOULD KEEP UP.\nONE WAY TO EVERY CHAIN.'}/>
     <div className="k-who-quote"><div className="k-network-badges" aria-label="Supported chain ecosystems">{chains.map(([slug,name])=><span key={slug}><BrandLogo name={slug} label={name}/></span>)}</div><div><Ink as="blockquote" scroll text="Launchpad complexity belongs in the infrastructure. Control belongs with you."/><p className="k-author">SLIPWAY<br/><span>THE OPEN EXECUTION LAYER</span></p></div></div>
