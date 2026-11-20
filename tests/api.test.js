@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { chainIds, checkBackend, getEvents, getTransactionStatus, isTokenAddress, marketRequest, quoteRequest, request, resolveToken, submitTransaction } from '../src/api.js'
+import { chainIds, checkBackend, getEvents, getTransactionStatus, isTokenAddress, marketRequest, quoteRequest, request, resolveToken, submitBuiltTransactions, submitTransaction } from '../src/api.js'
 
 const address = '0x000000000000000000000000000000000000dead'
 
@@ -98,6 +98,28 @@ test('transaction submission and tracking validate inputs and stay on the same-o
   ])
   await assert.rejects(submitTransaction('https://service.example', 'solana', '0x0201'), /supported chain/)
   await assert.rejects(getTransactionStatus('https://service.example', 'base', 'bad'), /valid transaction hash/)
+})
+
+test('built EVM transactions switch chain, request wallet approval and track confirmation', async (t) => {
+  const originalFetch = globalThis.fetch
+  t.after(() => { globalThis.fetch = originalFetch })
+  const calls = []
+  globalThis.fetch = async (url) => {
+    assert.match(String(url), /\/v1\/transactions\/base\/0x[0-9a-f]{64}$/)
+    return new Response(JSON.stringify({ status: 'confirmed' }), { status: 200 })
+  }
+  const provider = { request: async ({ method }) => {
+    calls.push(method)
+    if (method === 'eth_requestAccounts') return ['0x0000000000000000000000000000000000000001']
+    if (method === 'eth_sendTransaction') return `0x${'1'.repeat(64)}`
+    return null
+  } }
+  const results = await submitBuiltTransactions('https://service.example', {
+    chain: 'base', chainId: 8453, wallet: '0x0000000000000000000000000000000000000001',
+    payloads: [{ kind: 'evm_transaction', purpose: 'execute_trade_with_fee', chainId: 8453, from: '0x0000000000000000000000000000000000000001', to: '0x0000000000000000000000000000000000000002', value: '0x0', data: '0x1234' }]
+  }, provider, () => {}, 0)
+  assert.equal(results[0].status, 'confirmed')
+  assert.deepEqual(calls, ['wallet_switchEthereumChain', 'eth_requestAccounts', 'eth_sendTransaction'])
 })
 
 test('event feed requests validate filters and encode pagination on the API path', async (t) => {

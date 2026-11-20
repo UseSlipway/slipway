@@ -138,10 +138,55 @@ export async function getTransactionStatus(endpoint, chain, hash) {
   return readJson(response)
 }
 
+export async function submitBuiltTransactions(endpoint, build, provider = globalThis.window?.ethereum, onStatus = () => {}, pollIntervalMs = 2_000) {
+  if (!provider?.request || !build || !['rhc', 'base'].includes(build.chain) || ![4663, 8453].includes(build.chainId)
+    || typeof build.wallet !== 'string' || !/^0x[a-fA-F0-9]{40}$/.test(build.wallet)
+    || !Array.isArray(build.payloads) || !build.payloads.length) {
+    throw new Error('Connect an EVM wallet and build a valid Slipway transaction first.')
+  }
+  const expectedChainId = `0x${Number(build.chainId).toString(16)}`
+  try {
+    await provider.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: expectedChainId }] })
+  } catch (error) {
+    if (error?.code !== 4902) throw error
+    const chain = build.chain === 'base'
+      ? { chainId: expectedChainId, chainName: 'Base', nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 }, rpcUrls: ['https://mainnet.base.org'], blockExplorerUrls: ['https://basescan.org'] }
+      : { chainId: expectedChainId, chainName: 'Robinhood Chain', nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 }, rpcUrls: ['https://rpc.mainnet.chain.robinhood.com'], blockExplorerUrls: ['https://robinhoodchain.blockscout.com'] }
+    await provider.request({ method: 'wallet_addEthereumChain', params: [chain] })
+    await provider.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: expectedChainId }] })
+  }
+  const accounts = await provider.request({ method: 'eth_requestAccounts' })
+  if (!Array.isArray(accounts) || !accounts.some((account) => typeof account === 'string' && account.toLowerCase() === build.wallet.toLowerCase())) {
+    throw new Error('The connected wallet does not match the wallet used to build this transaction.')
+  }
+  const results = []
+  for (const payload of build.payloads) {
+    if (payload.kind !== 'evm_transaction' || payload.chainId !== build.chainId || typeof payload.from !== 'string' || payload.from.toLowerCase() !== build.wallet.toLowerCase()
+      || !/^0x[a-fA-F0-9]{40}$/.test(payload.to) || !/^0x(?:[a-fA-F0-9]{2})*$/.test(payload.data)
+      || !/^0x[0-9a-fA-F]+$/.test(payload.value)) {
+      throw new Error('The unsigned transaction payload is invalid or does not match this wallet and chain.')
+    }
+    const hash = await provider.request({ method: 'eth_sendTransaction', params: [{ from: build.wallet, to: payload.to, value: payload.value, data: payload.data }] })
+    if (typeof hash !== 'string' || !/^0x[a-fA-F0-9]{64}$/.test(hash)) throw new Error('The wallet returned an invalid transaction hash.')
+    onStatus({ purpose: payload.purpose, hash, status: 'submitted' })
+    let status = { status: 'pending' }
+    for (let attempt = 0; attempt < 30; attempt += 1) {
+      await new Promise((resolve) => setTimeout(resolve, pollIntervalMs))
+      status = await getTransactionStatus(endpoint, build.chain, hash)
+      onStatus({ purpose: payload.purpose, hash, status: status.status })
+      if (status.status === 'confirmed' || status.status === 'reverted') break
+    }
+    results.push({ purpose: payload.purpose, hash, status: status.status })
+    if (status.status === 'reverted') throw new Error(`The ${payload.purpose.replaceAll('_', ' ')} transaction reverted (${hash}).`)
+    if (status.status !== 'confirmed') throw new Error(`The ${payload.purpose.replaceAll('_', ' ')} transaction is still pending (${hash}).`)
+  }
+  return results
+}
+
 export async function getEvents(endpoint, { after = 0, chain, types, limit = 100 } = {}) {
   if (!Number.isSafeInteger(Number(after)) || Number(after) < 0 || !Number.isInteger(limit) || limit < 1 || limit > 500
     || (chain !== undefined && !['rhc', 'base'].includes(chain))
-    || (types !== undefined && (!Array.isArray(types) || types.length > 2 || types.some((type) => !['token.launched', 'pool.graduated'].includes(type))))) {
+    || (types !== undefined && (!Array.isArray(types) || types.length > 3 || types.some((type) => !['token.launched', 'pool.graduated', 'pool.initialized'].includes(type))))) {
     throw new Error('Provide valid event feed filters.')
   }
   const query = new URLSearchParams({ after: String(after), limit: String(limit) })

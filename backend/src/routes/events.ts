@@ -2,7 +2,7 @@ import { Router } from "express";
 import { db } from "../db/index";
 
 export const eventRouter = Router();
-const eventTypes = new Set(["token.launched", "pool.graduated"]);
+const eventTypes = new Set(["token.launched", "pool.graduated", "pool.initialized"]);
 
 eventRouter.get("/", async (request, response) => {
   const afterRaw = request.query.after ?? "0";
@@ -18,7 +18,7 @@ eventRouter.get("/", async (request, response) => {
     return;
   }
   const types = typesRaw ? typesRaw.split(",") : [];
-  if (types.length > 2 || types.some((type) => !eventTypes.has(type))) {
+  if (types.length > 3 || types.some((type) => !eventTypes.has(type))) {
     response.status(400).json({ error: "Unsupported event type" });
     return;
   }

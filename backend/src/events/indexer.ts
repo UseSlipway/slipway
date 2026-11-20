@@ -1,4 +1,4 @@
-import { parseAbiItem, type Address, type Log } from "viem";
+import { getAddress, parseAbiItem, type Address, type Log } from "viem";
 import { getChainConfig, getPublicClient, type SlipwayChainId } from "../chains/config";
 import { db } from "../db/index";
 
@@ -7,9 +7,12 @@ const clankerV4Factory = "0xe85a59c628f7d27878aceb4bf3b35733630083a9" as Address
 const ponsLaunch = parseAbiItem("event TokenLaunched(address indexed token, address indexed curve, address indexed deployer, address pairToken, uint256 launchConfigId, uint256 graduationThreshold)");
 const ponsGraduation = parseAbiItem("event PoolGraduated(address indexed token, uint256 positionId, uint256 tokenAmount, uint256 pairTokenAmount)");
 const clankerLaunch = parseAbiItem("event TokenCreated(address msgSender, address indexed tokenAddress, address indexed tokenAdmin, string tokenImage, string tokenName, string tokenSymbol, string tokenMetadata, string tokenContext, int24 startingTick, address poolHook, bytes32 poolId, address pairedToken, address locker, address mevModule, uint256 extensionsSupply, address[] extensions)");
-const sources: Array<{ id: string; chain: SlipwayChainId; address: Address; events: Array<{ event: typeof ponsLaunch | typeof ponsGraduation | typeof clankerLaunch; type: string }> }> = [
+const v4Initialize = parseAbiItem("event Initialize(bytes32 indexed id, address indexed currency0, address indexed currency1, uint24 fee, int24 tickSpacing, address hooks, uint160 sqrtPriceX96, int24 tick)");
+const sources: Array<{ id: string; chain: SlipwayChainId; address: Address; events: Array<{ event: typeof ponsLaunch | typeof ponsGraduation | typeof clankerLaunch | typeof v4Initialize; type: string }> }> = [
   { id: "pons-v2-rhc", chain: "rhc", address: ponsFactory, events: [{ event: ponsLaunch, type: "token.launched" }, { event: ponsGraduation, type: "pool.graduated" }] },
   { id: "clanker-v4-base", chain: "base", address: clankerV4Factory, events: [{ event: clankerLaunch, type: "token.launched" }] },
+  { id: "uniswap-v4-pools-base", chain: "base", address: getAddress("0x498581ff718922c3f8e6a244956af099b2652b2b"), events: [{ event: v4Initialize, type: "pool.initialized" }] },
+  { id: "uniswap-v4-pools-rhc", chain: "rhc", address: getAddress("0x8366a39cc670b4001a1121b8f6a443a643e40951"), events: [{ event: v4Initialize, type: "pool.initialized" }] },
 ];
 
 function jsonSafe(value: unknown): unknown {

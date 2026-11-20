@@ -1,6 +1,15 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.30;
 
+interface IPermit2AllowanceTransfer {
+    function approve(address token, address spender, uint160 amount, uint48 expiration) external;
+}
+
+interface IWrappedNative {
+    function withdraw(uint256 amount) external;
+    function deposit() external payable;
+}
+
 /// @notice Executes an exact-input EVM venue call and splits disclosed input fees.
 /// @dev Venue adapters must encode the venue's output recipient as this router.
 ///      The router forwards the measured output to the wallet that called it.
@@ -21,6 +30,13 @@ contract SlipwayFeeRouter {
         uint16 protocolFeeBps;
         uint16 integratorFeeBps;
         address integratorRecipient;
+    }
+
+    struct VenueOptions {
+        address permit2;
+        address wrappedNative;
+        bool unwrapInput;
+        bool wrapOutput;
     }
 
     error InvalidFeeRecipient();
@@ -59,6 +75,32 @@ contract SlipwayFeeRouter {
         external
         returns (uint256 amountOut)
     {
+        return _executeExactIn(params, venueCall, VenueOptions(address(0), address(0), false, false));
+    }
+
+    /// @notice Executes a Uniswap v4 Universal Router call through Permit2.
+    /// @dev A newly deployed router is required; the already deployed contract has no this selector.
+    function executeExactInV4(ExactInParams calldata params, address permit2, bytes calldata venueCall)
+        external
+        returns (uint256 amountOut)
+    {
+        if (permit2 == address(0) || permit2.code.length == 0) revert InvalidAddress();
+        return _executeExactIn(params, venueCall, VenueOptions(permit2, address(0), false, false));
+    }
+
+    function executeExactInV4Native(ExactInParams calldata params, address permit2, address wrappedNative, bool unwrapInput, bool wrapOutput, bytes calldata venueCall)
+        external
+        returns (uint256 amountOut)
+    {
+        if (permit2 == address(0) || permit2.code.length == 0 || wrappedNative == address(0) || wrappedNative.code.length == 0) revert InvalidAddress();
+        if ((unwrapInput && params.tokenIn != wrappedNative) || (wrapOutput && params.tokenOut != wrappedNative)) revert InvalidAddress();
+        return _executeExactIn(params, venueCall, VenueOptions(permit2, wrappedNative, unwrapInput, wrapOutput));
+    }
+
+    function _executeExactIn(ExactInParams calldata params, bytes calldata venueCall, VenueOptions memory options)
+        private
+        returns (uint256 amountOut)
+    {
         if (entered != 1) revert ReentrantCall();
         entered = 2;
 
@@ -88,7 +130,7 @@ contract SlipwayFeeRouter {
         if (protocolFee > 0) _safeTransfer(params.tokenIn, feeRecipient, protocolFee);
         if (integratorFee > 0) _safeTransfer(params.tokenIn, params.integratorRecipient, integratorFee);
 
-        amountOut = _executeVenue(params, venueAmount, venueCall);
+        amountOut = _executeVenue(params, venueAmount, venueCall, options);
         uint256 inputAfter = _balanceOf(params.tokenIn, address(this));
         if (inputAfter < inputBefore) revert InvalidTokenTransfer();
         if (inputAfter > inputBefore) _safeTransfer(params.tokenIn, msg.sender, inputAfter - inputBefore);
@@ -115,16 +157,47 @@ contract SlipwayFeeRouter {
         );
     }
 
-    function _executeVenue(ExactInParams calldata params, uint256 venueAmount, bytes calldata venueCall)
+    function _executeVenue(ExactInParams calldata params, uint256 venueAmount, bytes calldata venueCall, VenueOptions memory options)
         private
         returns (uint256 amountOut)
     {
         uint256 outputBefore = _balanceOf(params.tokenOut, address(this));
-        _forceApprove(params.tokenIn, params.venue, venueAmount);
-        (bool success, bytes memory result) = params.venue.call(venueCall);
-        _forceApprove(params.tokenIn, params.venue, 0);
+        uint256 nativeBefore = address(this).balance;
+        if (options.permit2 == address(0)) {
+            _forceApprove(params.tokenIn, params.venue, venueAmount);
+        } else if (!options.unwrapInput) {
+            _grantPermit2(params.tokenIn, options.permit2, params.venue, venueAmount);
+        }
+        if (options.unwrapInput) IWrappedNative(options.wrappedNative).withdraw(venueAmount);
+        (bool success, bytes memory result) = params.venue.call{value: options.unwrapInput ? venueAmount : 0}(venueCall);
+        if (options.permit2 == address(0)) {
+            _forceApprove(params.tokenIn, params.venue, 0);
+        } else if (!options.unwrapInput) {
+            _revokePermit2(params.tokenIn, options.permit2, params.venue);
+            _forceApprove(params.tokenIn, options.permit2, 0);
+        }
         if (!success) revert VenueCallFailed(result);
+        if (options.wrapOutput) {
+            uint256 nativeOutput = address(this).balance - nativeBefore + (options.unwrapInput ? venueAmount : 0);
+            if (nativeOutput > 0) IWrappedNative(options.wrappedNative).deposit{value: nativeOutput}();
+        }
         amountOut = _balanceOf(params.tokenOut, address(this)) - outputBefore;
+    }
+
+    function _grantPermit2(address token, address permit2, address spender, uint256 amount) private {
+        if (amount > type(uint160).max) revert InvalidAmount();
+        _forceApprove(token, permit2, amount);
+        (bool success, bytes memory result) = permit2.call(
+            abi.encodeCall(IPermit2AllowanceTransfer.approve, (token, spender, uint160(amount), uint48(block.timestamp + 120)))
+        );
+        if (!success || result.length != 0) revert TokenCallFailed(permit2, IPermit2AllowanceTransfer.approve.selector);
+    }
+
+    function _revokePermit2(address token, address permit2, address spender) private {
+        (bool success, bytes memory result) = permit2.call(
+            abi.encodeCall(IPermit2AllowanceTransfer.approve, (token, spender, uint160(0), uint48(0)))
+        );
+        if (!success || result.length != 0) revert TokenCallFailed(permit2, IPermit2AllowanceTransfer.approve.selector);
     }
 
     function _safeTransferFrom(address token, address from, address to, uint256 amount) private {
@@ -157,4 +230,6 @@ contract SlipwayFeeRouter {
         if (!success || result.length < 32) revert TokenCallFailed(token, 0x70a08231);
         return abi.decode(result, (uint256));
     }
+
+    receive() external payable {}
 }

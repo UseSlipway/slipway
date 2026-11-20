@@ -11,6 +11,8 @@ describe("Base and Robinhood Chain configuration", () => {
     expect(base?.uniswapV3.factory).toBe("0x33128a8fc17869897dce68ed026d694621f6fdfd");
     expect(rhc?.uniswapV4.poolManager).toBe("0x8366a39cc670b4001a1121b8f6a443a643e40951");
     expect(base?.uniswapV4.poolManager).toBe("0x498581ff718922c3f8e6a244956af099b2652b2b");
+    expect(rhc?.uniswapV4.universalRouter).toBe("0x8876789976decbfcbbbe364623c63652db8c0904");
+    expect(base?.uniswapV4.universalRouter).toBe("0x6ff5693b99212da76ad316178a184ab56d299b43");
     expect(UNISWAP_V3_FEES).toEqual([100, 500, 3000, 10000]);
     for (const chain of [rhc!, base!]) {
       const addresses = [chain.wrappedNative, ...chain.quoteAssets.map((asset) => asset.address), ...Object.values(chain.uniswapV3), ...Object.values(chain.uniswapV4).filter(Boolean)];
