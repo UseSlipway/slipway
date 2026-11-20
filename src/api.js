@@ -138,6 +138,27 @@ export async function getTransactionStatus(endpoint, chain, hash) {
   return readJson(response)
 }
 
+export async function getEvents(endpoint, { after = 0, chain, types, limit = 100 } = {}) {
+  if (!Number.isSafeInteger(Number(after)) || Number(after) < 0 || !Number.isInteger(limit) || limit < 1 || limit > 500
+    || (chain !== undefined && !['rhc', 'base'].includes(chain))
+    || (types !== undefined && (!Array.isArray(types) || types.length > 2 || types.some((type) => !['token.launched', 'pool.graduated'].includes(type))))) {
+    throw new Error('Provide valid event feed filters.')
+  }
+  const query = new URLSearchParams({ after: String(after), limit: String(limit) })
+  if (chain) query.set('chain', chain)
+  if (types?.length) query.set('types', types.join(','))
+  const root = apiRoot(endpoint)
+  const response = await fetch(`${root}/v1/events?${query}`, {
+    method: 'GET',
+    credentials: 'omit',
+    headers: { Accept: 'application/json' },
+    signal: AbortSignal.timeout(15_000),
+  }).catch((error) => {
+    throw new Error(error.name === 'TimeoutError' ? 'The event feed took too long to respond.' : 'Could not reach Slipway event feed.')
+  })
+  return readJson(response)
+}
+
 export async function resolveToken(endpoint, chain, address) {
   if (!Object.hasOwn(chainIds, chain) || !isTokenAddress(address, chain)) {
     throw new Error('Enter a valid public token address for the selected chain.')

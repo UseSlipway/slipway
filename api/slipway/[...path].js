@@ -6,6 +6,7 @@ const routes = [
   { method: 'GET', pattern: /^v1\/market\/(networks(\/(solana|robinhood|base|bsc))?\/trending_pools|search\/pools|networks\/(solana|robinhood|base|bsc)\/pools\/[A-Za-z0-9]{32,64}(\/ohlcv\/(minute|hour|day))?)$/ },
   { method: 'POST', pattern: /^v1\/transactions\/submit$/ },
   { method: 'GET', pattern: /^v1\/transactions\/(rhc|base)\/0x[a-fA-F0-9]{64}$/ },
+  { method: 'GET', pattern: /^v1\/events$/ },
   { method: 'POST', pattern: /^v1\/(quote|build\/trade|launch\/quote|build\/launch)$/ },
   { method: 'POST', pattern: /^v1\/x402\/(verify|settle)$/ },
 ]

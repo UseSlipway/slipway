@@ -1,0 +1,70 @@
+import { parseAbiItem, type Address, type Log } from "viem";
+import { getChainConfig, getPublicClient, type SlipwayChainId } from "../chains/config";
+import { db } from "../db/index";
+
+const ponsFactory = "0x7ed598bcef8bd9edd8c97a195c6d13f40801ec7e" as Address;
+const clankerV4Factory = "0xe85a59c628f7d27878aceb4bf3b35733630083a9" as Address;
+const ponsLaunch = parseAbiItem("event TokenLaunched(address indexed token, address indexed curve, address indexed deployer, address pairToken, uint256 launchConfigId, uint256 graduationThreshold)");
+const ponsGraduation = parseAbiItem("event PoolGraduated(address indexed token, uint256 positionId, uint256 tokenAmount, uint256 pairTokenAmount)");
+const clankerLaunch = parseAbiItem("event TokenCreated(address msgSender, address indexed tokenAddress, address indexed tokenAdmin, string tokenImage, string tokenName, string tokenSymbol, string tokenMetadata, string tokenContext, int24 startingTick, address poolHook, bytes32 poolId, address pairedToken, address locker, address mevModule, uint256 extensionsSupply, address[] extensions)");
+const sources: Array<{ id: string; chain: SlipwayChainId; address: Address; events: Array<{ event: typeof ponsLaunch | typeof ponsGraduation | typeof clankerLaunch; type: string }> }> = [
+  { id: "pons-v2-rhc", chain: "rhc", address: ponsFactory, events: [{ event: ponsLaunch, type: "token.launched" }, { event: ponsGraduation, type: "pool.graduated" }] },
+  { id: "clanker-v4-base", chain: "base", address: clankerV4Factory, events: [{ event: clankerLaunch, type: "token.launched" }] },
+];
+
+function jsonSafe(value: unknown): unknown {
+  return JSON.parse(JSON.stringify(value, (_key, child) => typeof child === "bigint" ? child.toString() : child));
+}
+
+async function scanSource(source: typeof sources[number]) {
+  const config = getChainConfig(source.chain)!;
+  const client = getPublicClient(config);
+  const head = await client.getBlockNumber();
+  const safeHead = head > 3n ? head - 3n : head;
+  const existing = await db.query<{ last_block: string }>("SELECT last_block FROM chain_event_cursors WHERE source = $1", [source.id]);
+  let cursor = existing.rows[0] ? BigInt(existing.rows[0].last_block) : safeHead - 1n;
+  if (!existing.rows[0]) {
+    await db.query(
+      "INSERT INTO chain_event_cursors (source, chain, last_block) VALUES ($1, $2, $3) ON CONFLICT (source) DO NOTHING",
+      [source.id, source.chain, cursor.toString()]
+    );
+    const raced = await db.query<{ last_block: string }>("SELECT last_block FROM chain_event_cursors WHERE source = $1", [source.id]);
+    cursor = BigInt(raced.rows[0]!.last_block);
+  }
+  if (cursor >= safeHead) return;
+
+  const fromBlock = cursor + 1n;
+  const toBlock = fromBlock + 499n < safeHead ? fromBlock + 499n : safeHead;
+  const logsByType = await Promise.all(source.events.map(async ({ event, type }) => ({
+    type,
+    logs: await client.getLogs({ address: source.address, event, fromBlock, toBlock }),
+  })));
+  for (const { type, logs } of logsByType) {
+    for (const log of logs as Log[]) {
+      const payload = jsonSafe({ event: type, address: log.address, args: "args" in log ? log.args : undefined, topics: log.topics, data: log.data, blockNumber: log.blockNumber, transactionHash: log.transactionHash, logIndex: log.logIndex });
+      const id = `${source.chain}:${log.transactionHash}:${log.logIndex}`;
+      await db.query(
+        `INSERT INTO chain_events (event_id, chain, event_type, payload, block_number, block_hash, transaction_hash, log_index)
+         VALUES ($1, $2, $3, $4::jsonb, $5, $6, $7, $8) ON CONFLICT (event_id) DO NOTHING`,
+        [id, source.chain, type, JSON.stringify(payload), log.blockNumber?.toString(), log.blockHash, log.transactionHash, log.logIndex]
+      );
+    }
+  }
+  await db.query("UPDATE chain_event_cursors SET last_block = $2, updated_at = now() WHERE source = $1", [source.id, toBlock.toString()]);
+}
+
+let started = false;
+export function startEventIndexer() {
+  if (started) return;
+  started = true;
+  const poll = async () => {
+    try {
+      for (const source of sources) await scanSource(source);
+    } catch (error) {
+      console.error(JSON.stringify({ event: "event_indexer_error", errorType: error instanceof Error ? error.name : "unknown" }));
+    } finally {
+      setTimeout(poll, 3_000).unref?.();
+    }
+  };
+  setTimeout(poll, 1_000).unref?.();
+}

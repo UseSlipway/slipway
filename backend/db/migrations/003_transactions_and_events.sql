@@ -27,3 +27,10 @@ CREATE TABLE IF NOT EXISTS chain_events (
 
 CREATE INDEX IF NOT EXISTS chain_events_stream_idx ON chain_events (id DESC);
 CREATE INDEX IF NOT EXISTS chain_events_type_idx ON chain_events (event_type, id DESC);
+
+CREATE TABLE IF NOT EXISTS chain_event_cursors (
+  source TEXT PRIMARY KEY,
+  chain TEXT NOT NULL CHECK (chain IN ('rhc', 'base')),
+  last_block BIGINT NOT NULL,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);

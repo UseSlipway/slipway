@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { chainIds, checkBackend, getTransactionStatus, isTokenAddress, marketRequest, quoteRequest, request, resolveToken, submitTransaction } from '../src/api.js'
+import { chainIds, checkBackend, getEvents, getTransactionStatus, isTokenAddress, marketRequest, quoteRequest, request, resolveToken, submitTransaction } from '../src/api.js'
 
 const address = '0x000000000000000000000000000000000000dead'
 
@@ -98,6 +98,21 @@ test('transaction submission and tracking validate inputs and stay on the same-o
   ])
   await assert.rejects(submitTransaction('https://service.example', 'solana', '0x0201'), /supported chain/)
   await assert.rejects(getTransactionStatus('https://service.example', 'base', 'bad'), /valid transaction hash/)
+})
+
+test('event feed requests validate filters and encode pagination on the API path', async (t) => {
+  const originalFetch = globalThis.fetch
+  t.after(() => { globalThis.fetch = originalFetch })
+  let target
+  globalThis.fetch = async (url, options) => {
+    target = String(url)
+    assert.equal(options.credentials, 'omit')
+    return new Response(JSON.stringify({ events: [], nextCursor: 12 }), { status: 200 })
+  }
+  const feed = await getEvents('https://service.example', { after: 12, chain: 'rhc', types: ['token.launched'], limit: 25 })
+  assert.equal(target, 'https://service.example/v1/events?after=12&limit=25&chain=rhc&types=token.launched')
+  assert.equal(feed.nextCursor, 12)
+  await assert.rejects(getEvents('https://service.example', { chain: 'solana' }), /event feed filters/)
 })
 
 test('token resolution encodes the address and validates response fields', async (t) => {

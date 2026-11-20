@@ -84,6 +84,26 @@ test('proxy allows transaction submission and hash status routes', async (t) => 
   assert.equal(status.statusCode, 202)
 })
 
+test('proxy allows event polling', async (t) => {
+  const originalFetch = globalThis.fetch
+  const originalUrl = process.env.SLIPWAY_API_URL
+  process.env.SLIPWAY_API_URL = 'https://backend.example'
+  t.after(() => {
+    globalThis.fetch = originalFetch
+    if (originalUrl === undefined) delete process.env.SLIPWAY_API_URL
+    else process.env.SLIPWAY_API_URL = originalUrl
+  })
+  let target
+  globalThis.fetch = async (url) => {
+    target = String(url)
+    return new Response(JSON.stringify({ events: [] }), { status: 200 })
+  }
+  const res = mockResponse()
+  await handler({ url: '/api/slipway/v1/events?after=10&chain=base', method: 'GET', headers: {} }, res)
+  assert.equal(target, 'https://backend.example/v1/events?after=10&chain=base')
+  assert.equal(res.statusCode, 200)
+})
+
 test('proxy rejects unknown routes and methods before making an upstream request', async (t) => {
   const originalFetch = globalThis.fetch
   const originalUrl = process.env.SLIPWAY_API_URL

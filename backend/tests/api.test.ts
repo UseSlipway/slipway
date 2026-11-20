@@ -98,4 +98,13 @@ describe("backend API surface", () => {
     expect(invalidChain.status).toBe(400);
     expect(invalidHash.status).toBe(400);
   });
+
+  test("validates event feed filters before database access", async () => {
+    const badCursor = await fetch(`${origin}/v1/events?after=-1`);
+    const badChain = await fetch(`${origin}/v1/events?chain=solana`);
+    const badType = await fetch(`${origin}/v1/events?types=admin.secret`);
+    expect(badCursor.status).toBe(400);
+    expect(badChain.status).toBe(400);
+    expect(badType.status).toBe(400);
+  });
 });
