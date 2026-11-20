@@ -8,6 +8,7 @@ const ponsLaunch = parseAbiItem("event TokenLaunched(address indexed token, addr
 const ponsGraduation = parseAbiItem("event PoolGraduated(address indexed token, uint256 positionId, uint256 tokenAmount, uint256 pairTokenAmount)");
 const clankerLaunch = parseAbiItem("event TokenCreated(address msgSender, address indexed tokenAddress, address indexed tokenAdmin, string tokenImage, string tokenName, string tokenSymbol, string tokenMetadata, string tokenContext, int24 startingTick, address poolHook, bytes32 poolId, address pairedToken, address locker, address mevModule, uint256 extensionsSupply, address[] extensions)");
 const v4Initialize = parseAbiItem("event Initialize(bytes32 indexed id, address indexed currency0, address indexed currency1, uint24 fee, int24 tickSpacing, address hooks, uint160 sqrtPriceX96, int24 tick)");
+const maxLogRange = 100n;
 const sources: Array<{ id: string; chain: SlipwayChainId; address: Address; events: Array<{ event: typeof ponsLaunch | typeof ponsGraduation | typeof clankerLaunch | typeof v4Initialize; type: string }> }> = [
   { id: "pons-v2-rhc", chain: "rhc", address: ponsFactory, events: [{ event: ponsLaunch, type: "token.launched" }, { event: ponsGraduation, type: "pool.graduated" }] },
   { id: "clanker-v4-base", chain: "base", address: clankerV4Factory, events: [{ event: clankerLaunch, type: "token.launched" }] },
@@ -38,7 +39,7 @@ async function getLogsWithRangeFallback(source: typeof sources[number], event: t
   try {
     return await client.getLogs({ address: source.address, event, fromBlock, toBlock }) as Log[];
   } catch (error) {
-    if (fromBlock < toBlock) {
+    if (fromBlock < toBlock && isLogRangeLimitError(error)) {
       const midpoint = fromBlock + (toBlock - fromBlock) / 2n;
       return [
         ...await getLogsWithRangeFallback(source, event, fromBlock, midpoint),
@@ -49,6 +50,19 @@ async function getLogsWithRangeFallback(source: typeof sources[number], event: t
     Object.assign(failure, { source: source.id, chain: source.chain, fromBlock: fromBlock.toString(), toBlock: toBlock.toString() });
     throw failure;
   }
+}
+
+function isLogRangeLimitError(error: unknown): boolean {
+  const messages: string[] = [];
+  let current: unknown = error;
+  while (current && typeof current === "object") {
+    const item = current as { message?: unknown; shortMessage?: unknown; details?: unknown; cause?: unknown };
+    for (const value of [item.shortMessage, item.message, item.details]) {
+      if (typeof value === "string") messages.push(value);
+    }
+    current = item.cause;
+  }
+  return /(?:block|log|result|response).{0,80}(?:range|limit|too many|too large|exceed)|(?:range|limit|too many|too large|exceed).{0,80}(?:block|log|result|response)/i.test(messages.join(" "));
 }
 
 async function scanSource(source: typeof sources[number]) {
@@ -69,7 +83,7 @@ async function scanSource(source: typeof sources[number]) {
   if (cursor >= safeHead) return;
 
   const fromBlock = cursor + 1n;
-  const toBlock = fromBlock + 499n < safeHead ? fromBlock + 499n : safeHead;
+  const toBlock = fromBlock + maxLogRange - 1n < safeHead ? fromBlock + maxLogRange - 1n : safeHead;
   const logsByType = await Promise.all(source.events.map(async ({ event, type }) => ({
     type,
     logs: await getLogsWithRangeFallback(source, event, fromBlock, toBlock),
