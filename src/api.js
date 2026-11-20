@@ -1,8 +1,6 @@
 export const chainIds = {
-  Solana: 'solana',
   'Robinhood Chain': 'rhc',
   Base: 'base',
-  'BNB Chain': 'bnb',
 }
 
 const defaultEndpoint = '/api/slipway'
@@ -50,7 +48,7 @@ async function readJson(response) {
 
 export function isTokenAddress(address, chain) {
   if (typeof address !== 'string' || !Object.hasOwn(chainIds, chain)) return false
-  return (chain === 'Solana' ? /^[1-9A-HJ-NP-Za-km-z]{32,44}$/ : /^0x[a-fA-F0-9]{40}$/).test(address)
+  return /^0x[a-fA-F0-9]{40}$/.test(address)
 }
 
 export function quoteRequest(values, settings) {

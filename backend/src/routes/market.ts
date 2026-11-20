@@ -8,7 +8,7 @@ let marketFetch: MarketFetch = (...args) => globalThis.fetch(...args);
 export function setMarketFetcher(fetcher?: MarketFetch) {
   marketFetch = fetcher ?? ((...args) => globalThis.fetch(...args));
 }
-const networkPattern = "(?:solana|robinhood|base|bsc)";
+const networkPattern = "(?:robinhood|base)";
 const poolPattern = "[A-Za-z0-9]{32,64}";
 const routes = [
   new RegExp(`^/networks/trending_pools$`),
@@ -30,7 +30,7 @@ function validQuery(path: string, params: URLSearchParams): boolean {
   const include = params.get("include");
   if (include && include !== "base_token,quote_token") return false;
   const network = params.get("network");
-  if (network && !["solana", "robinhood", "base", "bsc"].includes(network)) return false;
+  if (network && !["robinhood", "base"].includes(network)) return false;
   const query = params.get("query");
   if (path === "/search/pools" && (!query || query.trim().length < 2 || query.length > 100)) return false;
   for (const key of ["page", "aggregate", "limit", "before_timestamp"]) {

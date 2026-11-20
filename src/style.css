@@ -14,3 +14,4 @@
 @media(hover:hover) and (pointer:fine){.service-art:hover{transform:translateY(-5px)}}
 @media(max-width:1000px){.service-row{grid-template-columns:70px 1fr 1fr}.service-row>.eyebrow{grid-column:2}.service-copy{grid-column:2}.service-art{grid-column:3;grid-row:span 2;margin-top:-35px}.service-row>strong{grid-row:span 2}.service-row h3{font-size:24px}.principle-grid article:first-child{margin-right:15px;padding:18px}}
 @media(max-width:600px){.service-row{grid-template-columns:45px 1fr;gap:15px}.service-art{grid-column:2;grid-row:auto;margin-top:12px;min-height:220px}.principle-grid article{min-height:230px}.principle-grid article:first-child{margin-right:0}.principle-grid article h3{font-size:22px}.principle-grid article p{min-height:90px}}
+.socials>a{width:37px;height:37px;border:1px solid currentColor;border-radius:50%;display:grid;place-items:center;transition:background .2s,color .2s}.socials>a:hover{background:var(--gold);color:var(--deep)}

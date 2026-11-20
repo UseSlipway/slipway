@@ -3,7 +3,7 @@ import {Introduction,Problems,Calculator,Services,Process,Feature,Principles,Int
 import Photo from './Photo';
 import Lenis from 'lenis';
 import 'lenis/dist/lenis.css';
-const photos=[['architecture','An open foundation'],['infrastructure','One integration'],['network','Every route'],['precision','Explicit by design'],['multichain','Across four chains'],['trading','Launch. Buy. Sell.'],['launch','From first launch']];
+const photos=[['architecture','An open foundation'],['infrastructure','One integration'],['network','Every route'],['precision','Explicit by design'],['multichain','Across supported chains'],['trading','Launch. Buy. Sell.'],['launch','From first launch']];
 function Orbit(){
  const root=useRef(),els=useRef([]);
  useEffect(()=>{
@@ -29,7 +29,7 @@ export default function Landing({ready=false}){
  useEffect(()=>{if(matchMedia('(prefers-reduced-motion: reduce)').matches)return;const lenis=new Lenis({duration:1.2,smoothWheel:true,autoRaf:true,anchors:true,allowNestedScroll:true});const jump=()=>{const target=document.getElementById(location.hash.slice(1));if(target){lenis.resize();lenis.scrollTo(target,{immediate:true,force:true})}};let disposed=false,settledFrame;const hashFrame=requestAnimationFrame(jump);const settle=()=>document.fonts.ready.then(()=>{if(!disposed)settledFrame=requestAnimationFrame(jump)});if(document.readyState==='complete')settle();else addEventListener('load',settle,{once:true});addEventListener('hashchange',jump);const menu=e=>e.detail?lenis.stop():lenis.start();const stop=()=>lenis.stop();addEventListener('menu-state',menu);addEventListener('navigate',stop);return()=>{removeEventListener('menu-state',menu);removeEventListener('navigate',stop);removeEventListener('hashchange',jump);disposed=true;removeEventListener('load',settle);cancelAnimationFrame(hashFrame);cancelAnimationFrame(settledFrame);lenis.destroy()}},[]);
  const loaded=ready;
  return <main className="landing kyma-landing">
- <section className={'caspia-hero '+(loaded?'entered':'')}><Orbit/><div className="hero-copy"><h1 aria-label="SLIPWAY">{'SLIPWAY'.split('').map((c,i)=><span key={i}><b style={{animationDelay:i*.075+'s'}}>{c}</b></span>)}</h1><p>Launch, buy and sell across chains.<br/>One API, one SDK, one MCP. Your wallet signs.</p></div><div className="hero-foot"><span>OPEN EXECUTION INFRASTRUCTURE</span><span>SOLANA · RHC · BASE · BNB</span><a href="#introduction" className="scroll-hint">SCROLL TO EXPLORE ↓</a></div></section>
+ <section className={'caspia-hero '+(loaded?'entered':'')}><Orbit/><div className="hero-copy"><h1 aria-label="SLIPWAY">{'SLIPWAY'.split('').map((c,i)=><span key={i}><b style={{animationDelay:i*.075+'s'}}>{c}</b></span>)}</h1><p>Launch, buy and sell across chains.<br/>One API, one SDK, one MCP. Your wallet signs.</p></div><div className="hero-foot"><span>OPEN EXECUTION INFRASTRUCTURE</span><span>ROBINHOOD CHAIN · BASE · BNB COMING SOON</span><a href="#introduction" className="scroll-hint">SCROLL TO EXPLORE ↓</a></div></section>
  <Introduction/><Problems/><Calculator/><Services/><Process/><Feature/><Principles/><Integrations/><Audiences/><Pricing/><FAQ/><Articles/><Closing/><Footer/>
  </main>
 }

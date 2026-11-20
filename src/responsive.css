@@ -7,7 +7,7 @@ button,a{touch-action:manipulation}
 button{user-select:none;-webkit-user-select:none}
 button:focus-visible,a:focus-visible,summary:focus-visible{outline:2px solid var(--gold);outline-offset:5px}
 .site-header{padding-left:max(var(--page-gutter),calc((100vw - 1840px)/2),env(safe-area-inset-left));padding-right:max(var(--page-gutter),calc((100vw - 1840px)/2),env(safe-area-inset-right));height:calc(60px + env(safe-area-inset-top));padding-top:calc(8px + env(safe-area-inset-top));padding-bottom:8px}
-.menu-toggle,.socials>button,.modal-close{min-height:44px;min-width:44px}
+.menu-toggle,.socials>button,.socials>a,.modal-close{min-height:44px;min-width:44px}
 .k-full-menu.full-menu{padding-left:max(var(--page-gutter),calc((100vw - 1840px)/2),env(safe-area-inset-left));padding-right:max(var(--page-gutter),calc((100vw - 1840px)/2),env(safe-area-inset-right));padding-top:calc(90px + env(safe-area-inset-top));height:100dvh;overflow-y:auto;overscroll-behavior:contain}
 .k-full-menu .menu-social{bottom:max(30px,env(safe-area-inset-bottom))}
 .site-footer.k-site-footer{padding-left:max(var(--page-gutter),calc((100vw - 1840px)/2),env(safe-area-inset-left));padding-right:max(var(--page-gutter),calc((100vw - 1840px)/2),env(safe-area-inset-right));padding-bottom:max(25px,env(safe-area-inset-bottom))}

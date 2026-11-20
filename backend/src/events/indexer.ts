@@ -94,15 +94,17 @@ export function startEventIndexer() {
   started = true;
   const poll = async () => {
     try {
-      for (const source of sources) await scanSource(source);
-    } catch (error) {
-      const details = errorSummary(error);
-      console.error(JSON.stringify({ event: "event_indexer_error", ...details,
-        source: error && typeof error === "object" && "source" in error ? error.source : undefined,
-        chain: error && typeof error === "object" && "chain" in error ? error.chain : undefined,
-        fromBlock: error && typeof error === "object" && "fromBlock" in error ? error.fromBlock : undefined,
-        toBlock: error && typeof error === "object" && "toBlock" in error ? error.toBlock : undefined
-      }));
+      for (const source of sources) {
+        try {
+          await scanSource(source);
+        } catch (error) {
+          const details = errorSummary(error);
+          console.error(JSON.stringify({ event: "event_indexer_error", ...details, source: source.id, chain: source.chain,
+            fromBlock: error && typeof error === "object" && "fromBlock" in error ? error.fromBlock : undefined,
+            toBlock: error && typeof error === "object" && "toBlock" in error ? error.toBlock : undefined
+          }));
+        }
+      }
     } finally {
       setTimeout(poll, 3_000).unref?.();
     }
