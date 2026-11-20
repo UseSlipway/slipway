@@ -1,12 +1,12 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { chainIds, checkBackend, getEvents, getTransactionStatus, isTokenAddress, marketRequest, quoteRequest, request, resolveToken, submitBuiltTransactions, submitTransaction } from '../src/api.js'
+import { chainIds, checkBackend, getEvents, getTransactionStatus, isTokenAddress, marketRequest, createWorkspaceSession, getCloudWorkspace, putCloudWorkspace, quoteRequest, request, resolveToken, submitBuiltTransactions, submitTransaction } from '../src/api.js'
 
 const address = '0x000000000000000000000000000000000000dead'
 
 test('chain identifiers and public address validation are chain-aware', () => {
-  assert.deepEqual(chainIds, { Solana: 'solana', 'Robinhood Chain': 'rhc', Base: 'base', 'BNB Chain': 'bnb' })
-  assert.equal(isTokenAddress('So11111111111111111111111111111111111111112', 'Solana'), true)
+  assert.deepEqual(chainIds, { 'Robinhood Chain': 'rhc', Base: 'base' })
+  assert.equal(isTokenAddress('So11111111111111111111111111111111111111112', 'Solana'), false)
   assert.equal(isTokenAddress(address, 'Base'), true)
   assert.equal(isTokenAddress('invalid', 'Solana'), false)
   assert.equal(isTokenAddress(address, 'Solana'), false)
@@ -152,4 +152,30 @@ test('token resolution encodes the address and validates response fields', async
   await assert.rejects(resolveToken('https://service.example', 'Solana', 'bad'), /valid public token address/)
   globalThis.fetch = async () => new Response(JSON.stringify({ venue: 'uniswap-v3' }), { status: 200 })
   await assert.rejects(resolveToken('https://service.example', 'Base', address), /incomplete token route/)
+})
+
+
+test('wallet workspace session signs a server challenge and keeps the bearer token on the server API path', async (t) => {
+  const originalFetch = globalThis.fetch
+  t.after(() => { globalThis.fetch = originalFetch })
+  const targets = []
+  globalThis.fetch = async (url, options) => {
+    targets.push({ url: String(url), options })
+    const body = options.body ? JSON.parse(options.body) : null
+    if (String(url).endsWith('/workspace/challenge')) return new Response(JSON.stringify({ wallet: address, nonce: 'a'.repeat(64), message: 'Sign Slipway workspace challenge' }), { status: 200 })
+    if (String(url).endsWith('/workspace/verify')) return new Response(JSON.stringify({ wallet: address, token: 'b'.repeat(64) }), { status: 200 })
+    if (options.method === 'GET') return new Response(JSON.stringify({ wallet: address, exists: true, drafts: [], watches: [] }), { status: 200 })
+    return new Response(JSON.stringify({ wallet: address, saved: true }), { status: 200 })
+  }
+  let signedMessage = ''
+  const session = await createWorkspaceSession('https://service.example', address, async ({ message }) => { signedMessage = message; return `0x${'1'.repeat(130)}` })
+  assert.equal(signedMessage, 'Sign Slipway workspace challenge')
+  assert.equal(session.token, 'b'.repeat(64))
+  const cloud = await getCloudWorkspace('https://service.example', session.token)
+  assert.equal(cloud.exists, true)
+  assert.equal(targets.at(-1).options.headers.Authorization, `Bearer ${session.token}`)
+  await putCloudWorkspace('https://service.example', session.token, { drafts: [], watches: [] })
+  assert.equal(targets.at(-1).options.method, 'PUT')
+  assert.deepEqual(JSON.parse(targets.at(-1).options.body), { drafts: [], watches: [] })
+  assert.ok(targets.every(({ url }) => url.startsWith('https://service.example/v1/workspace')))
 })

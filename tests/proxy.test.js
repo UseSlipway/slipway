@@ -2,6 +2,10 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import handler from '../api/slipway/[...path].js'
 
+const testApiKey = 'test-server-api-key'
+const originalModuleApiKey = process.env.API_KEY
+process.env.API_KEY = testApiKey
+test.after(() => { if (originalModuleApiKey === undefined) delete process.env.API_KEY; else process.env.API_KEY = originalModuleApiKey })
 function mockResponse() {
   return {
     statusCode: 200,
@@ -17,10 +21,13 @@ function mockResponse() {
 test('same-origin proxy forwards only allowed paths to the server-configured backend', async (t) => {
   const originalFetch = globalThis.fetch
   const originalUrl = process.env.SLIPWAY_API_URL
+  const originalKey = process.env.API_KEY
+  process.env.API_KEY = testApiKey
   t.after(() => {
     globalThis.fetch = originalFetch
     if (originalUrl === undefined) delete process.env.SLIPWAY_API_URL
     else process.env.SLIPWAY_API_URL = originalUrl
+    if (originalKey === undefined) delete process.env.API_KEY; else process.env.API_KEY = originalKey
   })
   process.env.SLIPWAY_API_URL = 'https://backend.example'
   let target
@@ -35,6 +42,7 @@ test('same-origin proxy forwards only allowed paths to the server-configured bac
   assert.equal(target, 'https://backend.example/v1/quote')
   assert.equal(forwarded.method, 'POST')
   assert.equal(forwarded.headers.get('authorization'), 'Bearer test')
+  assert.equal(forwarded.headers.get('x-api-key'), testApiKey)
   assert.deepEqual(JSON.parse(forwarded.body), { chain: 'base' })
   assert.equal(res.statusCode, 200)
   assert.equal(res.headers['cache-control'], 'no-store')
@@ -127,4 +135,31 @@ test('proxy fails clearly when the backend URL is not configured', async (t) => 
   const res = mockResponse()
   await handler({ url: '/api/slipway/health', method: 'GET', headers: {} }, res)
   assert.equal(res.statusCode, 503)
+})
+
+
+test('proxy keeps health public and requires its server-side API key for workspace routes', async (t) => {
+  const originalFetch = globalThis.fetch
+  const originalUrl = process.env.SLIPWAY_API_URL
+  const originalKey = process.env.API_KEY
+  process.env.SLIPWAY_API_URL = 'https://backend.example'
+  process.env.API_KEY = testApiKey
+  t.after(() => {
+    globalThis.fetch = originalFetch
+    if (originalUrl === undefined) delete process.env.SLIPWAY_API_URL; else process.env.SLIPWAY_API_URL = originalUrl
+    if (originalKey === undefined) delete process.env.API_KEY; else process.env.API_KEY = originalKey
+  })
+  const targets = []
+  globalThis.fetch = async (url, options) => { targets.push({ url: String(url), options }); return new Response(JSON.stringify({ ok: true }), { status: 200 }) }
+  const health = mockResponse()
+  await handler({ url: '/api/slipway/health', method: 'GET', headers: {} }, health)
+  const challenge = mockResponse()
+  await handler({ url: '/api/slipway/v1/workspace/challenge', method: 'POST', headers: { 'content-type': 'application/json' }, body: { wallet: '0xabc' } }, challenge)
+  const workspace = mockResponse()
+  await handler({ url: '/api/slipway/v1/workspace', method: 'GET', headers: { authorization: 'Bearer session-token' } }, workspace)
+  assert.equal(health.statusCode, 200)
+  assert.equal(targets[0].options.headers.has('x-api-key'), false)
+  assert.equal(targets[1].options.headers.get('x-api-key'), testApiKey)
+  assert.equal(targets[2].options.headers.get('authorization'), 'Bearer session-token')
+  assert.equal(targets[2].options.headers.get('x-api-key'), testApiKey)
 })

@@ -58,3 +58,4 @@
 .lp[data-theme=dark] select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='m1 1 5 5 5-5' fill='none' stroke='%23e6c886' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")}
 .lp-side-bottom .lp-side-btn{width:100%;justify-content:flex-start;padding-inline:14px;border:1px solid var(--line);background:transparent;color:inherit;border-radius:var(--r-sm);font:inherit}
 .lp-side-bottom .lp-side-btn:hover{background:var(--surface-2)}
+.lp-cloud-status{display:block;max-width:220px;padding:6px 12px;color:var(--muted);font-size:10px;line-height:1.4;overflow-wrap:anywhere}

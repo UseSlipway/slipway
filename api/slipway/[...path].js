@@ -7,6 +7,9 @@ const routes = [
   { method: 'POST', pattern: /^v1\/transactions\/submit$/ },
   { method: 'GET', pattern: /^v1\/transactions\/(rhc|base)\/0x[a-fA-F0-9]{64}$/ },
   { method: 'GET', pattern: /^v1\/events$/ },
+  { method: 'GET', pattern: /^v1\/workspace\/?$/ },
+  { method: 'PUT', pattern: /^v1\/workspace\/?$/ },
+  { method: 'POST', pattern: /^v1\/workspace\/(challenge|verify)$/ },
   { method: 'POST', pattern: /^v1\/(quote|build\/trade|launch\/quote|build\/launch)$/ },
   { method: 'POST', pattern: /^v1\/x402\/(verify|settle)$/ },
 ]

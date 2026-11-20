@@ -11,10 +11,11 @@ import { transactionRouter } from "./routes/transactions";
 import { eventRouter } from "./routes/events";
 import { launchRouter } from "./routes/launches";
 import { x402Router } from "./routes/x402";
+import { workspaceRouter } from "./routes/workspace";
 
 export const app = express();
 app.disable("x-powered-by");
-app.use(express.json({ limit: "256kb" }));
+app.use(express.json({ limit: "4mb" }));
 app.use((request, response, next) => {
   const requestId = randomUUID();
   const startedAt = performance.now();
@@ -83,6 +84,7 @@ app.get("/ready/", async (_request, response) => {
   const ready = Object.values(checks).every((status) => status === "ok");
   response.status(ready ? 200 : 503).json({ status: ready ? "ready" : "degraded", checks });
 });
+app.use("/v1/workspace", workspaceRouter);
 app.use("/v1", apiRouter);
 app.get("/v1/chains", (_request, response) => {
   response.json(["rhc", "base"].map((id) => publicChainConfig(getChainConfig(id)!)));

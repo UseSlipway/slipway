@@ -38,7 +38,9 @@ async function readJson(response) {
     throw new Error('The service returned an unreadable response.')
   }
   if (!response.ok) {
-    throw new Error(typeof data.message === 'string' ? data.message : typeof data.error === 'string' ? data.error : `The service returned ${response.status}.`)
+    const error = new Error(typeof data.message === 'string' ? data.message : typeof data.error === 'string' ? data.error : `The service returned ${response.status}.`)
+    error.status = response.status
+    throw error
   }
   if (!data || typeof data !== 'object' || Array.isArray(data)) {
     throw new Error('The service returned an incomplete response.')
@@ -219,4 +221,43 @@ export async function resolveToken(endpoint, chain, address) {
     throw new Error('The service returned an incomplete token route.')
   }
   return data
+}
+
+
+async function workspaceRequest(endpoint, method, token, body) {
+  if (typeof token !== 'string' || !/^[a-f0-9]{64}$/i.test(token)) throw new Error('Sign with your wallet to access its workspace.')
+  const root = apiRoot(endpoint)
+  const response = await fetch(`${root}/v1/workspace`, {
+    method,
+    credentials: 'omit',
+    cache: 'no-store',
+    headers: { Accept: 'application/json', Authorization: `Bearer ${token}`, ...(body ? { 'Content-Type': 'application/json' } : {}) },
+    ...(body ? { body: JSON.stringify(body) } : {}),
+    signal: AbortSignal.timeout(15_000),
+  }).catch((error) => {
+    throw new Error(error.name === 'TimeoutError' ? 'Wallet workspace sync timed out.' : 'Could not reach your Slipway workspace service.')
+  })
+  return readJson(response)
+}
+
+export async function createWorkspaceSession(endpoint, wallet, signMessage) {
+  if (!/^0x[a-fA-F0-9]{40}$/.test(wallet) || typeof signMessage !== 'function') throw new Error('Connect an EVM wallet to sync your workspace.')
+  const challenge = await request(endpoint, 'workspace/challenge', { wallet })
+  if (challenge.wallet?.toLowerCase() !== wallet.toLowerCase() || typeof challenge.message !== 'string' || typeof challenge.nonce !== 'string') {
+    throw new Error('The service returned an invalid wallet challenge.')
+  }
+  const signature = await signMessage({ message: challenge.message })
+  const session = await request(endpoint, 'workspace/verify', { wallet, nonce: challenge.nonce, signature })
+  if (session.wallet?.toLowerCase() !== wallet.toLowerCase() || typeof session.token !== 'string' || !/^[a-f0-9]{64}$/i.test(session.token)) {
+    throw new Error('The service returned an invalid wallet workspace session.')
+  }
+  return session
+}
+
+export async function getCloudWorkspace(endpoint, token) {
+  return workspaceRequest(endpoint, 'GET', token)
+}
+
+export async function putCloudWorkspace(endpoint, token, { drafts, watches }) {
+  return workspaceRequest(endpoint, 'PUT', token, { drafts, watches })
 }
