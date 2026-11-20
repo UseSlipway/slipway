@@ -59,6 +59,24 @@ describe("backend API surface", () => {
     expect(response.status).toBe(400);
   });
 
+  test("rejects unsupported launch venue and chain combinations before RPC access", async () => {
+    const response = await fetch(`${origin}/v1/launch/quote`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ venue: "pons", chain: 8453, wallet: "0x000000000000000000000000000000000000dead", name: "Token", symbol: "TKN", metadataUri: "ipfs://token" })
+    });
+    expect(response.status).toBe(400);
+  });
+
+  test("rejects malformed launch build requests before database access", async () => {
+    const response = await fetch(`${origin}/v1/build/launch`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ launchQuoteId: "invalid", wallet: "bad", accountKind: "kernel4337" })
+    });
+    expect(response.status).toBe(400);
+  });
+
   test("proxies approved market requests to the fixed provider origin", async () => {
     let requested = "";
     setMarketFetcher(async (input) => {
