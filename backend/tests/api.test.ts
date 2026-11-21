@@ -145,8 +145,10 @@ describe("backend API surface", () => {
     const badCursor = await apiFetch(`${origin}/v1/events?after=-1`);
     const badChain = await apiFetch(`${origin}/v1/events?chain=solana`);
     const badType = await apiFetch(`${origin}/v1/events?types=admin.secret`);
+    const badWallet = await apiFetch(`${origin}/v1/events?wallet=not-a-wallet`);
     expect(badCursor.status).toBe(400);
     expect(badChain.status).toBe(400);
     expect(badType.status).toBe(400);
+    expect(badWallet.status).toBe(400);
   });
 });

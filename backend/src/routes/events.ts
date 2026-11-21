@@ -9,10 +9,12 @@ eventRouter.get("/", async (request, response) => {
   const limitRaw = request.query.limit ?? "100";
   const chain = request.query.chain;
   const typesRaw = request.query.types;
+  const wallet = request.query.wallet;
   if (typeof afterRaw !== "string" || !/^\d{1,18}$/.test(afterRaw)
     || typeof limitRaw !== "string" || !/^\d{1,3}$/.test(limitRaw)
     || Number(limitRaw) < 1 || Number(limitRaw) > 500
     || (chain !== undefined && chain !== "base" && chain !== "rhc")
+    || (wallet !== undefined && (typeof wallet !== "string" || !/^0x[a-fA-F0-9]{40}$/.test(wallet)))
     || (typesRaw !== undefined && typeof typesRaw !== "string")) {
     response.status(400).json({ error: "Invalid event query" });
     return;
@@ -29,8 +31,15 @@ eventRouter.get("/", async (request, response) => {
       FROM chain_events WHERE id > $1`;
     if (chain) { values.push(chain); sql += ` AND chain = $${values.length}`; }
     if (types.length) { values.push(types); sql += ` AND event_type = ANY($${values.length}::text[])`; }
+    if (wallet) {
+      values.push(wallet.toLowerCase());
+      const walletParam = `$${values.length}`;
+      sql += ` AND (lower(payload->'args'->>'deployer') = ${walletParam}
+        OR lower(payload->'args'->>'tokenAdmin') = ${walletParam}
+        OR lower(payload->'args'->>'msgSender') = ${walletParam})`;
+    }
     values.push(Number(limitRaw));
-    sql += ` ORDER BY id ASC LIMIT $${values.length}`;
+    sql += ` ORDER BY id ${wallet ? "DESC" : "ASC"} LIMIT $${values.length}`;
     const result = await db.query(sql, values);
     response.setHeader("Cache-Control", "no-store").json({ events: result.rows, nextCursor: result.rows.at(-1)?.id ?? Number(afterRaw) });
   } catch {

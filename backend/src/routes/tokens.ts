@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { getAddress, isAddress, type Address } from "viem";
+import { getAddress, isAddress, parseAbi, type Address } from "viem";
 import {
   erc20ReadAbi,
   getChainConfig,
@@ -11,6 +11,11 @@ import {
 } from "../chains/config";
 
 export const tokenRouter = Router();
+const ponsFactory = "0x7ed598bcef8bd9edd8c97a195c6d13f40801ec7e" as Address;
+const ponsLaunchLookupAbi = parseAbi([
+  "struct LaunchedToken { address token; address curve; address deployer; address creatorFeeRecipient; address pairToken; uint256 graduationThreshold; uint24 poolFee; int24 tickSpacing; uint16 creatorTaxBps; bool buybackEnabled; uint8 phase; uint256 sweptQuote; uint256 sweptTokens; uint256 sweptAt; bool exists; }",
+  "function getLaunchedToken(address token) view returns (LaunchedToken)"
+]);
 
 tokenRouter.get("/:chain/:token", async (request, response) => {
   const config = getChainConfig(request.params.chain);
@@ -42,6 +47,36 @@ tokenRouter.get("/:chain/:token", async (request, response) => {
       client.readContract({ address: token, abi: erc20ReadAbi, functionName: "name" }).catch(() => null)
     ]);
 
+    if (config.id === "rhc") {
+      const launch = await client.readContract({
+        address: ponsFactory,
+        abi: ponsLaunchLookupAbi,
+        functionName: "getLaunchedToken",
+        args: [token]
+      }).catch(() => null);
+      if (launch?.exists) {
+        const quoteAsset = launch.pairToken === "0x0000000000000000000000000000000000000000"
+          ? "ETH"
+          : config.quoteAssets.find((asset) => asset.address.toLowerCase() === launch.pairToken.toLowerCase())?.symbol ?? "—";
+        response.setHeader("Cache-Control", "public, max-age=30").json({
+          chain: config.id,
+          chainId: config.chainId,
+          token,
+          name: metadata[2],
+          symbol: metadata[1],
+          decimals: metadata[0],
+          venue: "pons-v2",
+          venueBrand: "Pons",
+          phase: launch.phase === 2 ? "CURVE_ACTIVE" : "PONS_LAUNCHED",
+          quoteAsset,
+          poolRef: { venue: "pons-v2", address: launch.curve, phase: Number(launch.phase) },
+          source: "onchain",
+          resolvedAt: new Date().toISOString()
+        });
+        return;
+      }
+    }
+
     const candidates = config.quoteAssets
       .filter((asset) => asset.address.toLowerCase() !== token.toLowerCase())
       .flatMap((asset, quoteIndex) => UNISWAP_V3_FEES.map((fee) => ({ asset, quoteIndex, fee })));
@@ -71,13 +106,13 @@ tokenRouter.get("/:chain/:token", async (request, response) => {
       .filter((candidate): candidate is NonNullable<typeof candidate> => candidate !== null)
       .sort((a, b) => a.quoteIndex - b.quoteIndex || (a.liquidity > b.liquidity ? -1 : a.liquidity < b.liquidity ? 1 : 0))[0];
 
+    const resolvedAt = new Date().toISOString();
+    response.setHeader("Cache-Control", "public, max-age=5");
     if (!pool) {
-      response.status(404).json({ error: "No supported liquid Uniswap v3 pool found for this token" });
+      response.status(404).json({ error: "No supported liquid Uniswap v3 pool or recognized launch found for this token" });
       return;
     }
 
-    const resolvedAt = new Date().toISOString();
-    response.setHeader("Cache-Control", "public, max-age=5");
     response.json({
       chain: config.id,
       chainId: config.chainId,

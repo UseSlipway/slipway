@@ -186,10 +186,12 @@ test('event feed requests validate filters and encode pagination on the API path
     assert.equal(options.credentials, 'omit')
     return new Response(JSON.stringify({ events: [], nextCursor: 12 }), { status: 200 })
   }
-  const feed = await getEvents('https://service.example', { after: 12, chain: 'rhc', types: ['token.launched'], limit: 25 })
-  assert.equal(target, 'https://service.example/v1/events?after=12&limit=25&chain=rhc&types=token.launched')
+  const wallet = '0x0000000000000000000000000000000000000001'
+  const feed = await getEvents('https://service.example', { after: 12, chain: 'rhc', wallet, types: ['token.launched'], limit: 25 })
+  assert.equal(target, `https://service.example/v1/events?after=12&limit=25&chain=rhc&wallet=${wallet}&types=token.launched`)
   assert.equal(feed.nextCursor, 12)
   await assert.rejects(getEvents('https://service.example', { chain: 'solana' }), /event feed filters/)
+  await assert.rejects(getEvents('https://service.example', { wallet: 'not-a-wallet' }), /event feed filters/)
 })
 
 test('token resolution encodes the address and validates response fields', async (t) => {

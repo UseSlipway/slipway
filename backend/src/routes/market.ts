@@ -4,9 +4,12 @@ export const marketRouter = Router();
 
 const upstream = "https://api.geckoterminal.com/api/v2";
 type MarketFetch = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
-let marketFetch: MarketFetch = (...args) => globalThis.fetch(...args);
+const defaultMarketFetch: MarketFetch = (...args) => globalThis.fetch(...args);
+let marketFetch: MarketFetch = defaultMarketFetch;
+let marketFetcherOverridden = false;
 export function setMarketFetcher(fetcher?: MarketFetch) {
-  marketFetch = fetcher ?? ((...args) => globalThis.fetch(...args));
+  marketFetcherOverridden = Boolean(fetcher);
+  marketFetch = fetcher ?? defaultMarketFetch;
 }
 const networkPattern = "(?:robinhood|base)";
 const poolPattern = "[A-Za-z0-9]{32,64}";
@@ -76,7 +79,7 @@ async function fetchAndCache(key: string, target: URL): Promise<CachedResponse |
       };
       // Only cache successful provider responses. A rate limit or outage must not
       // replace the last good payload.
-      if (result.ok) {
+      if (result.ok && !marketFetcherOverridden) {
         const db = await database();
         await db?.query(
           `INSERT INTO market_response_cache (cache_key, status_code, content_type, body, fetched_at)
@@ -139,7 +142,7 @@ marketRouter.get("/*path", async (request, response) => {
   }
 
   const key = cacheKey(path, params);
-  const cached = await readCache(key);
+  const cached = marketFetcherOverridden ? null : await readCache(key);
   const fresh = cached && Date.now() - cached.fetchedAt.getTime() < ttlFor(path);
   const target = new URL(`${upstream}${path}`);
   target.search = params.toString();
