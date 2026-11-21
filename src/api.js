@@ -3,7 +3,7 @@ export const chainIds = {
   Base: 'base',
 }
 
-const launchChainIds = {
+export const launchChainIds = {
   'Robinhood Chain': 4663,
   Base: 8453,
 }

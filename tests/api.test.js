@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { chainIds, checkBackend, getEvents, getTransactionStatus, isTokenAddress, launchQuoteRequest, marketRequest, createWorkspaceSession, getCloudWorkspace, putCloudWorkspace, quoteRequest, request, resolveToken, submitBuiltTransactions, submitTransaction, uploadTokenImage } from '../src/api.js'
+import { chainIds, checkBackend, getEvents, getTransactionStatus, isTokenAddress, launchChainIds, launchQuoteRequest, marketRequest, createWorkspaceSession, getCloudWorkspace, putCloudWorkspace, quoteRequest, request, resolveToken, submitBuiltTransactions, submitTransaction, uploadTokenImage } from '../src/api.js'
 
 const address = '0x000000000000000000000000000000000000dead'
 
@@ -22,6 +22,7 @@ test('quote payload includes chain, amount, slippage and an optional quote asset
 })
 
 test('launch quote request maps UI chain names to numeric EVM chain IDs', async (t) => {
+  assert.deepEqual(launchChainIds, { 'Robinhood Chain': 4663, Base: 8453 })
   const originalFetch = globalThis.fetch
   t.after(() => { globalThis.fetch = originalFetch })
   const bodies = []
