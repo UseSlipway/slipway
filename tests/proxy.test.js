@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import handler from '../api/slipway/[...path].js'
+import handler from '../api/slipway.js'
 
 const testApiKey = 'test-server-api-key'
 const originalModuleApiKey = process.env.API_KEY
@@ -38,7 +38,7 @@ test('same-origin proxy forwards only allowed paths to the server-configured bac
     return new Response(JSON.stringify({ status: 'ok' }), { status: 200, headers: { 'cache-control': 'no-store' } })
   }
   const res = mockResponse()
-  await handler({ url: '/api/slipway/v1/quote', method: 'POST', headers: { 'content-type': 'application/json', authorization: 'Bearer test' }, body: { chain: 'base' } }, res)
+  await handler({ url: '/api/slipway?path=v1%2Fquote', method: 'POST', headers: { 'content-type': 'application/json', authorization: 'Bearer test' }, body: { chain: 'base' } }, res)
   assert.equal(target, 'https://backend.example/v1/quote')
   assert.equal(forwarded.method, 'POST')
   assert.equal(forwarded.headers.get('authorization'), 'Bearer test')
@@ -63,7 +63,7 @@ test('proxy allows the bounded market data routes', async (t) => {
     return new Response(JSON.stringify({ data: [] }), { status: 200 })
   }
   const res = mockResponse()
-  await handler({ url: '/api/slipway/v1/market/networks/base/pools/0x1234567890123456789012345678901234567890/ohlcv/hour?aggregate=1', method: 'GET', headers: {} }, res)
+  await handler({ url: '/api/slipway?path=v1%2Fmarket%2Fnetworks%2Fbase%2Fpools%2F0x1234567890123456789012345678901234567890%2Fohlcv%2Fhour&aggregate=1', method: 'GET', headers: {} }, res)
   assert.equal(res.statusCode, 200)
   assert.equal(target, 'https://backend.example/v1/market/networks/base/pools/0x1234567890123456789012345678901234567890/ohlcv/hour?aggregate=1')
 })
@@ -83,10 +83,10 @@ test('proxy allows transaction submission and hash status routes', async (t) => 
     return new Response(JSON.stringify({ status: 'pending' }), { status: 202 })
   }
   const submit = mockResponse()
-  await handler({ url: '/api/slipway/v1/transactions/submit', method: 'POST', headers: { 'content-type': 'application/json' }, body: { chain: 'base', signedTransaction: '0x02' } }, submit)
+  await handler({ url: '/api/slipway?path=v1%2Ftransactions%2Fsubmit', method: 'POST', headers: { 'content-type': 'application/json' }, body: { chain: 'base', signedTransaction: '0x02' } }, submit)
   const status = mockResponse()
   const hash = `0x${'a'.repeat(64)}`
-  await handler({ url: `/api/slipway/v1/transactions/base/${hash}`, method: 'GET', headers: {} }, status)
+  await handler({ url: `/api/slipway?path=v1%2Ftransactions%2Fbase%2F${hash}`, method: 'GET', headers: {} }, status)
   assert.deepEqual(targets, [`https://backend.example/v1/transactions/submit`, `https://backend.example/v1/transactions/base/${hash}`])
   assert.equal(submit.statusCode, 202)
   assert.equal(status.statusCode, 202)
@@ -107,7 +107,7 @@ test('proxy allows event polling', async (t) => {
     return new Response(JSON.stringify({ events: [] }), { status: 200 })
   }
   const res = mockResponse()
-  await handler({ url: '/api/slipway/v1/events?after=10&chain=base', method: 'GET', headers: {} }, res)
+  await handler({ url: '/api/slipway?path=v1%2Fevents&after=10&chain=base', method: 'GET', headers: {} }, res)
   assert.equal(target, 'https://backend.example/v1/events?after=10&chain=base')
   assert.equal(res.statusCode, 200)
 })
@@ -123,7 +123,7 @@ test('proxy rejects unknown routes and methods before making an upstream request
   process.env.SLIPWAY_API_URL = 'https://backend.example'
   globalThis.fetch = async () => { throw new Error('unexpected upstream request') }
   const res = mockResponse()
-  await handler({ url: '/api/slipway/admin', method: 'GET', headers: {} }, res)
+  await handler({ url: '/api/slipway?path=admin', method: 'GET', headers: {} }, res)
   assert.equal(res.statusCode, 404)
   assert.equal(res.body.error, 'Slipway API route not found')
 })
@@ -133,7 +133,7 @@ test('proxy fails clearly when the backend URL is not configured', async (t) => 
   t.after(() => { if (original === undefined) delete process.env.SLIPWAY_API_URL; else process.env.SLIPWAY_API_URL = original })
   delete process.env.SLIPWAY_API_URL
   const res = mockResponse()
-  await handler({ url: '/api/slipway/health', method: 'GET', headers: {} }, res)
+  await handler({ url: '/api/slipway?path=health', method: 'GET', headers: {} }, res)
   assert.equal(res.statusCode, 503)
 })
 
@@ -152,14 +152,32 @@ test('proxy keeps health public and requires its server-side API key for workspa
   const targets = []
   globalThis.fetch = async (url, options) => { targets.push({ url: String(url), options }); return new Response(JSON.stringify({ ok: true }), { status: 200 }) }
   const health = mockResponse()
-  await handler({ url: '/api/slipway/health', method: 'GET', headers: {} }, health)
+  await handler({ url: '/api/slipway?path=health', method: 'GET', headers: {} }, health)
   const challenge = mockResponse()
-  await handler({ url: '/api/slipway/v1/workspace/challenge', method: 'POST', headers: { 'content-type': 'application/json' }, body: { wallet: '0xabc' } }, challenge)
+  await handler({ url: '/api/slipway?path=v1%2Fworkspace%2Fchallenge', method: 'POST', headers: { 'content-type': 'application/json' }, body: { wallet: '0xabc' } }, challenge)
   const workspace = mockResponse()
-  await handler({ url: '/api/slipway/v1/workspace', method: 'GET', headers: { authorization: 'Bearer session-token' } }, workspace)
+  await handler({ url: '/api/slipway?path=v1%2Fworkspace', method: 'GET', headers: { authorization: 'Bearer session-token' } }, workspace)
   assert.equal(health.statusCode, 200)
   assert.equal(targets[0].options.headers.has('x-api-key'), false)
   assert.equal(targets[1].options.headers.get('x-api-key'), testApiKey)
   assert.equal(targets[2].options.headers.get('authorization'), 'Bearer session-token')
   assert.equal(targets[2].options.headers.get('x-api-key'), testApiKey)
+})
+
+
+test('proxy forwards the Cloudinary image upload route through the single Vercel function path', async (t) => {
+  const originalFetch = globalThis.fetch
+  const originalUrl = process.env.SLIPWAY_API_URL
+  process.env.SLIPWAY_API_URL = 'https://backend.example'
+  t.after(() => {
+    globalThis.fetch = originalFetch
+    if (originalUrl === undefined) delete process.env.SLIPWAY_API_URL
+    else process.env.SLIPWAY_API_URL = originalUrl
+  })
+  let target
+  globalThis.fetch = async (url) => { target = String(url); return new Response(JSON.stringify({ url: 'https://res.cloudinary.com/test/image/upload/a.png' }), { status: 201 }) }
+  const res = mockResponse()
+  await handler({ url: '/api/slipway?path=v1%2Fmedia%2Fimages', method: 'POST', headers: { 'content-type': 'application/json' }, body: { image: 'data:image/png;base64,AA==' } }, res)
+  assert.equal(target, 'https://backend.example/v1/media/images')
+  assert.equal(res.statusCode, 201)
 })

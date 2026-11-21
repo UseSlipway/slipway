@@ -30,6 +30,19 @@ function apiRoot(endpoint) {
   return base.href.replace(/\/$/, '')
 }
 
+function apiUrl(root, path, query = '') {
+  const url = new URL(root)
+  const params = new URLSearchParams(query)
+  if (typeof window !== 'undefined' && url.origin === window.location.origin && url.pathname === '/api/slipway') {
+    url.searchParams.set('path', path)
+    for (const [key, value] of params) url.searchParams.append(key, value)
+    return url.href
+  }
+  url.pathname = `${url.pathname.replace(/\/$/, '')}/${path}`
+  url.search = params.toString()
+  return url.href
+}
+
 async function readJson(response) {
   let data
   try {
@@ -69,7 +82,7 @@ export function quoteRequest(values, settings) {
 
 export async function request(endpoint, path, body) {
   const root = apiRoot(endpoint)
-  const response = await fetch(`${root}/v1/${path}`, {
+  const response = await fetch(apiUrl(root, `v1/${path}`), {
     method: 'POST',
     credentials: 'omit',
     headers: { 'Content-Type': 'application/json' },
@@ -87,7 +100,7 @@ export async function uploadTokenImage(endpoint, image) {
     throw new Error('Choose a PNG, JPG, GIF or WebP image up to 2 MB.')
   }
   const root = apiRoot(endpoint)
-  const response = await fetch(`${root}/v1/media/images`, {
+  const response = await fetch(apiUrl(root, 'v1/media/images'), {
     method: 'POST',
     credentials: 'omit',
     headers: { 'Content-Type': 'application/json' },
@@ -105,7 +118,7 @@ export async function uploadTokenImage(endpoint, image) {
 
 export async function checkBackend(endpoint) {
   const root = apiRoot(endpoint)
-  const response = await fetch(`${root}/health`, {
+  const response = await fetch(apiUrl(root, 'health'), {
     method: 'GET',
     credentials: 'omit',
     headers: { Accept: 'application/json' },
@@ -125,7 +138,8 @@ export async function marketRequest(endpoint, path, signal) {
   const requestSignal = signal && typeof AbortSignal.any === 'function'
     ? AbortSignal.any([signal, timeout])
     : timeout
-  const response = await fetch(`${root}/v1/market/${path}`, {
+  const [marketPath, query = ''] = path.split('?', 2)
+  const response = await fetch(apiUrl(root, `v1/market/${marketPath}`, query), {
     method: 'GET',
     credentials: 'omit',
     headers: { Accept: 'application/json' },
@@ -149,7 +163,7 @@ export async function getTransactionStatus(endpoint, chain, hash) {
     throw new Error('Provide a supported chain and valid transaction hash.')
   }
   const root = apiRoot(endpoint)
-  const response = await fetch(`${root}/v1/transactions/${chain}/${hash}`, {
+  const response = await fetch(apiUrl(root, `v1/transactions/${chain}/${hash}`), {
     method: 'GET',
     credentials: 'omit',
     headers: { Accept: 'application/json' },
@@ -215,7 +229,7 @@ export async function getEvents(endpoint, { after = 0, chain, types, limit = 100
   if (chain) query.set('chain', chain)
   if (types?.length) query.set('types', types.join(','))
   const root = apiRoot(endpoint)
-  const response = await fetch(`${root}/v1/events?${query}`, {
+  const response = await fetch(apiUrl(root, 'v1/events', query.toString()), {
     method: 'GET',
     credentials: 'omit',
     headers: { Accept: 'application/json' },
@@ -231,7 +245,7 @@ export async function resolveToken(endpoint, chain, address) {
     throw new Error('Enter a valid public token address for the selected chain.')
   }
   const root = apiRoot(endpoint)
-  const response = await fetch(`${root}/v1/tokens/${chainIds[chain]}/${encodeURIComponent(address)}`, {
+  const response = await fetch(apiUrl(root, `v1/tokens/${chainIds[chain]}/${encodeURIComponent(address)}`), {
     method: 'GET',
     credentials: 'omit',
     signal: AbortSignal.timeout(15_000),
@@ -249,7 +263,7 @@ export async function resolveToken(endpoint, chain, address) {
 async function workspaceRequest(endpoint, method, token, body) {
   if (typeof token !== 'string' || !/^[a-f0-9]{64}$/i.test(token)) throw new Error('Sign with your wallet to access its workspace.')
   const root = apiRoot(endpoint)
-  const response = await fetch(`${root}/v1/workspace`, {
+  const response = await fetch(apiUrl(root, 'v1/workspace'), {
     method,
     credentials: 'omit',
     cache: 'no-store',

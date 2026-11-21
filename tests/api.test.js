@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { chainIds, checkBackend, getEvents, getTransactionStatus, isTokenAddress, marketRequest, createWorkspaceSession, getCloudWorkspace, putCloudWorkspace, quoteRequest, request, resolveToken, submitBuiltTransactions, submitTransaction } from '../src/api.js'
+import { chainIds, checkBackend, getEvents, getTransactionStatus, isTokenAddress, marketRequest, createWorkspaceSession, getCloudWorkspace, putCloudWorkspace, quoteRequest, request, resolveToken, submitBuiltTransactions, submitTransaction, uploadTokenImage } from '../src/api.js'
 
 const address = '0x000000000000000000000000000000000000dead'
 
@@ -49,6 +49,25 @@ test('API request normalizes the v1 prefix, omits credentials and reads service 
   await assert.rejects(request('https://service.example', 'quote', {}), /Venue unavailable/)
   globalThis.fetch = async () => new Response('not json', { status: 200 })
   await assert.rejects(request('https://service.example', 'quote', {}), /unreadable response/)
+})
+
+test('same-origin frontend API sends nested backend routes through the Vercel proxy query', async (t) => {
+  const originalFetch = globalThis.fetch
+  const priorWindow = globalThis.window
+  globalThis.window = { location: { origin: 'https://tryslipway.com' } }
+  t.after(() => {
+    globalThis.fetch = originalFetch
+    if (priorWindow === undefined) delete globalThis.window; else globalThis.window = priorWindow
+  })
+  let target
+  globalThis.fetch = async (url) => {
+    target = String(url)
+    return new Response(JSON.stringify({ url: 'https://res.cloudinary.com/demo/image/upload/token.png' }), { status: 201 })
+  }
+  await uploadTokenImage('/api/slipway', 'data:image/png;base64,iVBORw0KGgo=')
+  const parsed = new URL(target)
+  assert.equal(parsed.pathname, '/api/slipway')
+  assert.equal(parsed.searchParams.get('path'), 'v1/media/images')
 })
 
 test('health checks use the same-origin API and validate the response', async (t) => {

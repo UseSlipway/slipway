@@ -16,11 +16,12 @@ const routes = [
 ]
 
 export default async function handler(request, response) {
-  const path = new URL(request.url, 'http://localhost').pathname
-    .replace(/^\/api\/slipway\/?/, '')
+  const incoming = new URL(request.url, 'http://localhost')
+  const paths = incoming.searchParams.getAll('path')
+  const path = paths.length === 1 ? paths[0] : ''
   const method = request.method || 'GET'
 
-  if (!routes.some((route) => route.method === method && route.pattern.test(path))) {
+  if (!path || !routes.some((route) => route.method === method && route.pattern.test(path))) {
     return response.status(404).json({ error: 'Slipway API route not found' })
   }
 
@@ -34,7 +35,8 @@ export default async function handler(request, response) {
     const root = new URL(configuredUrl)
     if (!['http:', 'https:'].includes(root.protocol)) throw new Error('invalid protocol')
     root.pathname = `${root.pathname.replace(/\/$/, '')}/${path}`
-    root.search = new URL(request.url, 'http://localhost').search
+    incoming.searchParams.delete('path')
+    root.search = incoming.searchParams.toString()
     target = root
   } catch {
     return response.status(503).json({ error: 'Slipway API configuration is invalid' })
