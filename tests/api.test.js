@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { chainIds, checkBackend, getEvents, getTransactionStatus, isTokenAddress, marketRequest, createWorkspaceSession, getCloudWorkspace, putCloudWorkspace, quoteRequest, request, resolveToken, submitBuiltTransactions, submitTransaction, uploadTokenImage } from '../src/api.js'
+import { chainIds, checkBackend, getEvents, getTransactionStatus, isTokenAddress, launchQuoteRequest, marketRequest, createWorkspaceSession, getCloudWorkspace, putCloudWorkspace, quoteRequest, request, resolveToken, submitBuiltTransactions, submitTransaction, uploadTokenImage } from '../src/api.js'
 
 const address = '0x000000000000000000000000000000000000dead'
 
@@ -19,6 +19,20 @@ test('quote payload includes chain, amount, slippage and an optional quote asset
   })
   assert.throws(() => quoteRequest({ chain: 'Base', token: address, side: 'Buy', amount: '-1' }, { slippage: 0.5 }), /greater than zero/)
   assert.throws(() => quoteRequest({ chain: 'Base', token: 'bad', side: 'Buy', amount: '1' }, { slippage: 0.5 }), /valid public token address/)
+})
+
+test('launch quote request maps UI chain names to numeric EVM chain IDs', async (t) => {
+  const originalFetch = globalThis.fetch
+  t.after(() => { globalThis.fetch = originalFetch })
+  const bodies = []
+  globalThis.fetch = async (_url, options) => {
+    bodies.push(JSON.parse(options.body))
+    return new Response(JSON.stringify({ id: 'quote-1' }), { status: 200 })
+  }
+  const values = { chain: 'Base', venue: 'clanker-v4', wallet: address, name: 'Token', symbol: 'TKN', metadataUri: 'https://example.com/token.png' }
+  await launchQuoteRequest('https://service.example', values)
+  await launchQuoteRequest('https://service.example', { ...values, chain: 'Robinhood Chain', venue: 'pons' })
+  assert.deepEqual(bodies.map(({ chain }) => chain), [8453, 4663])
 })
 
 test('API endpoint validation rejects missing, insecure, credentialed and cross-origin URLs', async (t) => {

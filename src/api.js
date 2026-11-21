@@ -3,6 +3,11 @@ export const chainIds = {
   Base: 'base',
 }
 
+const launchChainIds = {
+  'Robinhood Chain': 4663,
+  Base: 8453,
+}
+
 const defaultEndpoint = '/api/slipway'
 
 function apiRoot(endpoint) {
@@ -92,6 +97,12 @@ export async function request(endpoint, path, body) {
     throw new Error(error.name === 'TimeoutError' ? 'The service took too long to respond. Try again.' : 'Could not reach your Slipway service.')
   })
   return readJson(response)
+}
+
+export function launchQuoteRequest(endpoint, values) {
+  const chain = launchChainIds[values.chain]
+  if (!chain) throw new Error('Choose a supported launch chain.')
+  return request(endpoint, 'launch/quote', { ...values, chain })
 }
 
 export async function uploadTokenImage(endpoint, image) {
