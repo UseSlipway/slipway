@@ -12,6 +12,7 @@ import { eventRouter } from "./routes/events";
 import { launchRouter } from "./routes/launches";
 import { x402Router } from "./routes/x402";
 import { workspaceRouter } from "./routes/workspace";
+import { mediaRouter } from "./routes/media";
 
 export const app = express();
 app.disable("x-powered-by");
@@ -85,6 +86,7 @@ app.get("/ready/", async (_request, response) => {
   response.status(ready ? 200 : 503).json({ status: ready ? "ready" : "degraded", checks });
 });
 app.use("/v1/workspace", workspaceRouter);
+app.use("/v1", mediaRouter);
 app.use("/v1", apiRouter);
 app.get("/v1/chains", (_request, response) => {
   response.json(["rhc", "base"].map((id) => publicChainConfig(getChainConfig(id)!)));

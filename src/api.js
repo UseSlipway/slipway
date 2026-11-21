@@ -81,6 +81,28 @@ export async function request(endpoint, path, body) {
   return readJson(response)
 }
 
+export async function uploadTokenImage(endpoint, image) {
+  if (typeof image !== 'string' || !/^data:image\/(?:png|jpeg|gif|webp);base64,[A-Za-z0-9+/]+={0,2}$/.test(image)
+    || image.length > 2_800_000) {
+    throw new Error('Choose a PNG, JPG, GIF or WebP image up to 2 MB.')
+  }
+  const root = apiRoot(endpoint)
+  const response = await fetch(`${root}/v1/media/images`, {
+    method: 'POST',
+    credentials: 'omit',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ image }),
+    signal: AbortSignal.timeout(60_000),
+  }).catch((error) => {
+    throw new Error(error.name === 'TimeoutError' ? 'Image upload timed out. Try again.' : 'Could not reach Slipway image storage.')
+  })
+  const result = await readJson(response)
+  if (typeof result.url !== 'string' || !result.url.startsWith('https://res.cloudinary.com/')) {
+    throw new Error('Image storage returned an invalid image URL.')
+  }
+  return result
+}
+
 export async function checkBackend(endpoint) {
   const root = apiRoot(endpoint)
   const response = await fetch(`${root}/health`, {
