@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { chainIds, checkBackend, getEvents, getTransactionStatus, isTokenAddress, evmBuildMatches, launchChainIds, launchQuoteMatches, launchQuoteRequest, marketRequest, createWorkspaceSession, getCloudWorkspace, putCloudWorkspace, quoteRequest, request, resolveToken, submitBuiltTransactions, submitTransaction, uploadTokenImage } from '../src/api.js'
+import { chainIds, checkBackend, getEvents, getTransactionStatus, isTokenAddress, evmBuildMatches, launchChainIds, launchQuoteMatches, launchQuoteRequest, marketRequest, createWorkspaceSession, getCloudWorkspace, putCloudWorkspace, quoteRequest, formatTokenAmount, request, resolveToken, submitBuiltTransactions, submitTransaction, uploadTokenImage } from '../src/api.js'
 
 const address = '0x000000000000000000000000000000000000dead'
 
@@ -19,6 +19,13 @@ test('quote payload includes chain, amount, slippage and an optional quote asset
   })
   assert.throws(() => quoteRequest({ chain: 'Base', token: address, side: 'Buy', amount: '-1' }, { slippage: 0.5 }), /greater than zero/)
   assert.throws(() => quoteRequest({ chain: 'Base', token: 'bad', side: 'Buy', amount: '1' }, { slippage: 0.5 }), /valid public token address/)
+})
+
+test('token amount display keeps six significant digits without clipping long decimals', () => {
+  assert.equal(formatTokenAmount('123.4567890123'), '123.456')
+  assert.equal(formatTokenAmount('0.000000123456789'), '0.000000123456')
+  assert.equal(formatTokenAmount('1000000000.12345'), '1000000000')
+  assert.equal(formatTokenAmount('0.000000000000000000'), '0')
 })
 
 test('launch quote request maps UI chain names to numeric EVM chain IDs', async (t) => {

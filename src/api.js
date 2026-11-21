@@ -83,6 +83,22 @@ export function quoteRequest(values, settings) {
   }
 }
 
+export function formatTokenAmount(value, significantDigits = 6) {
+  const text = String(value ?? '')
+  if (!/^\d+(?:\.\d+)?$/.test(text)) return text || '—'
+  const [whole, fraction = ''] = text.split('.')
+  const normalizedWhole = whole.replace(/^0+(?=\d)/, '')
+  const wholeSignificant = normalizedWhole === '0' ? 0 : normalizedWhole.length
+  let fractionDigits
+  if (wholeSignificant) fractionDigits = Math.max(0, significantDigits - wholeSignificant)
+  else {
+    const firstNonZero = fraction.search(/[1-9]/)
+    fractionDigits = firstNonZero < 0 ? 0 : firstNonZero + significantDigits
+  }
+  const displayedFraction = fraction.slice(0, Math.min(fraction.length, fractionDigits, 18)).replace(/0+$/, '')
+  return displayedFraction ? `${normalizedWhole}.${displayedFraction}` : normalizedWhole
+}
+
 export async function request(endpoint, path, body) {
   const root = apiRoot(endpoint)
   const response = await fetch(apiUrl(root, `v1/${path}`), {
