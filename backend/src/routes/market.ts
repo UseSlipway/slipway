@@ -18,6 +18,90 @@ const routes = [
   new RegExp(`^/networks/${networkPattern}/pools/${poolPattern}/ohlcv/(minute|hour|day)$`),
 ];
 
+type CachedResponse = { status: number; contentType: string; body: string; fetchedAt: Date };
+type Db = typeof import("../db/index").db;
+const refreshes = new Map<string, Promise<CachedResponse | null>>();
+let databaseUnavailableUntil = 0;
+let lastCacheCleanupAt = 0;
+
+function cacheKey(path: string, params: URLSearchParams) {
+  const normalized = new URLSearchParams([...params.entries()].sort(([a, av], [b, bv]) => a.localeCompare(b) || av.localeCompare(bv)));
+  return `${path}${normalized.size ? `?${normalized}` : ""}`;
+}
+
+function ttlFor(path: string) {
+  if (path === "/search/pools") return 120_000;
+  if (path.includes("/ohlcv/")) return 60_000;
+  if (path.endsWith("/trending_pools")) return 60_000;
+  return 30_000;
+}
+
+async function database(): Promise<Db | null> {
+  if (Date.now() < databaseUnavailableUntil) return null;
+  try { return (await import("../db/index")).db; } catch { return null; }
+}
+
+async function readCache(key: string): Promise<CachedResponse | null> {
+  const db = await database();
+  if (!db) return null;
+  try {
+    const result = await db.query<{ status_code: number; content_type: string; body: string; fetched_at: Date }>(
+      "SELECT status_code, content_type, body, fetched_at FROM market_response_cache WHERE cache_key = $1",
+      [key],
+    );
+    const row = result.rows[0];
+    return row ? { status: row.status_code, contentType: row.content_type, body: row.body, fetchedAt: row.fetched_at } : null;
+  } catch {
+    databaseUnavailableUntil = Date.now() + 30_000;
+    return null;
+  }
+}
+
+async function fetchAndCache(key: string, target: URL): Promise<CachedResponse | null> {
+  const active = refreshes.get(key);
+  if (active) return active;
+  const job = (async () => {
+    try {
+      const result = await marketFetch(target, {
+        headers: { accept: "application/json;version=20230203" },
+        signal: AbortSignal.timeout(10_000),
+      });
+      const body = await result.text();
+      if (body.length > 2_000_000) return null;
+      const value: CachedResponse = {
+        status: result.status,
+        contentType: result.headers.get("content-type") ?? "application/json",
+        body,
+        fetchedAt: new Date(),
+      };
+      // Only cache successful provider responses. A rate limit or outage must not
+      // replace the last good payload.
+      if (result.ok) {
+        const db = await database();
+        await db?.query(
+          `INSERT INTO market_response_cache (cache_key, status_code, content_type, body, fetched_at)
+           VALUES ($1, $2, $3, $4, now())
+           ON CONFLICT (cache_key) DO UPDATE SET status_code = EXCLUDED.status_code,
+             content_type = EXCLUDED.content_type, body = EXCLUDED.body, fetched_at = now()`,
+          [key, value.status, value.contentType, value.body],
+        ).catch(() => undefined);
+      }
+      return value;
+    } catch { return null; }
+  })();
+  refreshes.set(key, job);
+  try { return await job; } finally { refreshes.delete(key); }
+}
+
+function sendCached(response: import("express").Response, cached: CachedResponse, cacheStatus: "HIT" | "STALE" | "MISS") {
+  response.status(cached.status);
+  response.setHeader("Cache-Control", "public, max-age=15");
+  response.setHeader("X-Market-Cache", cacheStatus);
+  response.setHeader("X-Market-Updated-At", cached.fetchedAt.toISOString());
+  response.setHeader("Content-Type", cached.contentType);
+  response.send(cached.body);
+}
+
 function validQuery(path: string, params: URLSearchParams): boolean {
   const allowed = path === "/search/pools"
     ? new Set(["query", "network", "include", "page"])
@@ -54,23 +138,60 @@ marketRouter.get("/*path", async (request, response) => {
     return;
   }
 
-  try {
-    const target = new URL(`${upstream}${path}`);
-    target.search = params.toString();
-    const result = await marketFetch(target, {
-      headers: { accept: "application/json;version=20230203" },
-      signal: AbortSignal.timeout(10_000),
-    });
-    response.status(result.status);
-    response.setHeader("Cache-Control", path.includes("/ohlcv/") ? "public, max-age=30" : "public, max-age=15");
-    response.setHeader("Content-Type", result.headers.get("content-type") ?? "application/json");
-    const body = await result.arrayBuffer();
-    if (body.byteLength > 2_000_000) {
-      response.status(502).json({ error: "Market data response exceeded the service limit" });
-      return;
-    }
-    response.send(Buffer.from(body));
-  } catch {
-    response.status(503).json({ error: "Market data is temporarily unavailable" });
+  const key = cacheKey(path, params);
+  const cached = await readCache(key);
+  const fresh = cached && Date.now() - cached.fetchedAt.getTime() < ttlFor(path);
+  const target = new URL(`${upstream}${path}`);
+  target.search = params.toString();
+  if (cached && fresh) {
+    sendCached(response, cached, "HIT");
+    return;
   }
+  if (cached) {
+    // Serve the last good response immediately. A shared background refresh
+    // updates Postgres for the next request without making the UI wait.
+    sendCached(response, cached, "STALE");
+    void fetchAndCache(key, target);
+    return;
+  }
+
+  const result = await fetchAndCache(key, target);
+  if (result) {
+    sendCached(response, result, "MISS");
+    return;
+  }
+  response.status(503).json({ error: "Market data is temporarily unavailable" });
 });
+
+export function startMarketCacheRefresh(intervalMs = 30_000) {
+  const timer = setInterval(async () => {
+    const db = await database();
+    if (!db) return;
+    try {
+      const rows = await db.query<{ cache_key: string }>(
+        `SELECT cache_key FROM market_response_cache
+         WHERE (cache_key LIKE '%/trending_pools%' AND fetched_at < now() - interval '50 seconds')
+            OR (cache_key LIKE '%/ohlcv/%' AND fetched_at < now() - interval '50 seconds')
+            OR (cache_key NOT LIKE '%/trending_pools%' AND cache_key NOT LIKE '%/ohlcv/%'
+                AND cache_key NOT LIKE '/search/%' AND fetched_at < now() - interval '25 seconds')
+         ORDER BY fetched_at ASC LIMIT 5`,
+      );
+      for (const row of rows.rows) {
+        const [path, query = ""] = row.cache_key.split("?");
+        const params = new URLSearchParams(query);
+        const target = new URL(`${upstream}${path}`);
+        target.search = params.toString();
+        await fetchAndCache(row.cache_key, target);
+      }
+      if (Date.now() - lastCacheCleanupAt > 60 * 60_000) {
+        await db.query("DELETE FROM market_response_cache WHERE fetched_at < now() - interval '7 days'");
+        lastCacheCleanupAt = Date.now();
+      }
+    } catch (error) {
+      databaseUnavailableUntil = Date.now() + 30_000;
+      console.warn(JSON.stringify({ event: "market_cache_refresh_error", errorType: error instanceof Error ? error.name : "unknown" }));
+    }
+  }, intervalMs);
+  timer.unref();
+  return timer;
+}
