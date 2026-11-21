@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { chainIds, checkBackend, getEvents, getTransactionStatus, isTokenAddress, launchChainIds, launchQuoteRequest, marketRequest, createWorkspaceSession, getCloudWorkspace, putCloudWorkspace, quoteRequest, request, resolveToken, submitBuiltTransactions, submitTransaction, uploadTokenImage } from '../src/api.js'
+import { chainIds, checkBackend, getEvents, getTransactionStatus, isTokenAddress, evmBuildMatches, launchChainIds, launchQuoteMatches, launchQuoteRequest, marketRequest, createWorkspaceSession, getCloudWorkspace, putCloudWorkspace, quoteRequest, request, resolveToken, submitBuiltTransactions, submitTransaction, uploadTokenImage } from '../src/api.js'
 
 const address = '0x000000000000000000000000000000000000dead'
 
@@ -34,6 +34,20 @@ test('launch quote request maps UI chain names to numeric EVM chain IDs', async 
   await launchQuoteRequest('https://service.example', values)
   await launchQuoteRequest('https://service.example', { ...values, chain: 'Robinhood Chain', venue: 'pons' })
   assert.deepEqual(bodies.map(({ chain }) => chain), [8453, 4663])
+})
+
+test('launch quote and build responses must agree on chain slug, numeric ID, venue and wallet', () => {
+  const wallet = '0x0000000000000000000000000000000000000001'
+  const quote = { chain: 4663, chainId: 4663, venue: 'pons', wallet }
+  assert.equal(launchQuoteMatches(quote, { chain: 'Robinhood Chain', venue: 'pons', wallet }), true)
+  assert.equal(launchQuoteMatches({ ...quote, chain: 'rhc' }, { chain: 'Robinhood Chain', venue: 'pons', wallet }), false)
+  assert.equal(launchQuoteMatches({ ...quote, chainId: 8453 }, { chain: 'Robinhood Chain', venue: 'pons', wallet }), false)
+  assert.equal(launchQuoteMatches({ ...quote, venue: 'clanker-v4' }, { chain: 'Robinhood Chain', venue: 'pons', wallet }), false)
+  const build = { chain: 'rhc', chainId: 4663, wallet, payloads: [{ kind: 'evm_transaction', chainId: 4663, from: wallet }] }
+  assert.equal(evmBuildMatches(build, { chain: 'Robinhood Chain', wallet }), true)
+  assert.equal(evmBuildMatches({ ...build, chain: 'base' }, { chain: 'Robinhood Chain', wallet }), false)
+  assert.equal(evmBuildMatches({ ...build, chainId: 8453 }, { chain: 'Robinhood Chain', wallet }), false)
+  assert.equal(evmBuildMatches({ ...build, payloads: [{ ...build.payloads[0], chainId: 8453 }] }, { chain: 'Robinhood Chain', wallet }), false)
 })
 
 test('API endpoint validation rejects missing, insecure, credentialed and cross-origin URLs', async (t) => {
@@ -154,6 +168,13 @@ test('built EVM transactions switch chain, request wallet approval and track con
   }, provider, () => {}, 0)
   assert.equal(results[0].status, 'confirmed')
   assert.deepEqual(calls, ['wallet_switchEthereumChain', 'eth_requestAccounts', 'eth_sendTransaction'])
+  let mismatchCalls = 0
+  const mismatchProvider = { request: async () => { mismatchCalls += 1; return null } }
+  await assert.rejects(submitBuiltTransactions('https://service.example', {
+    chain: 'rhc', chainId: 8453, wallet: '0x0000000000000000000000000000000000000001',
+    payloads: [{ kind: 'evm_transaction', chainId: 8453, from: '0x0000000000000000000000000000000000000001', to: '0x0000000000000000000000000000000000000002', value: '0x0', data: '0x1234' }]
+  }, mismatchProvider), /valid Slipway transaction/)
+  assert.equal(mismatchCalls, 0, 'reject a chain mismatch before asking the wallet to switch')
 })
 
 test('event feed requests validate filters and encode pagination on the API path', async (t) => {

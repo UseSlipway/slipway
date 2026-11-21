@@ -1,12 +1,10 @@
-export const chainIds = {
-  'Robinhood Chain': 'rhc',
-  Base: 'base',
+const supportedEvmChains = {
+  'Robinhood Chain': { slug: 'rhc', chainId: 4663 },
+  Base: { slug: 'base', chainId: 8453 },
 }
-
-export const launchChainIds = {
-  'Robinhood Chain': 4663,
-  Base: 8453,
-}
+export const chainIds = Object.fromEntries(Object.entries(supportedEvmChains).map(([name, chain]) => [name, chain.slug]))
+export const launchChainIds = Object.fromEntries(Object.entries(supportedEvmChains).map(([name, chain]) => [name, chain.chainId]))
+const numericChainIds = Object.fromEntries(Object.values(supportedEvmChains).map(({ slug, chainId }) => [slug, chainId]))
 
 const defaultEndpoint = '/api/slipway'
 
@@ -105,6 +103,24 @@ export function launchQuoteRequest(endpoint, values) {
   return request(endpoint, 'launch/quote', { ...values, chain })
 }
 
+export function launchQuoteMatches(quote, { chain, venue, wallet }) {
+  const expectedChainId = launchChainIds[chain]
+  return Boolean(quote && expectedChainId && typeof wallet === 'string'
+    && quote.chain === expectedChainId && quote.chainId === expectedChainId
+    && quote.venue === venue && typeof quote.wallet === 'string'
+    && quote.wallet.toLowerCase() === wallet.toLowerCase())
+}
+
+export function evmBuildMatches(build, { chain, wallet }) {
+  const expectedChainId = launchChainIds[chain]
+  return Boolean(build && expectedChainId && typeof wallet === 'string'
+    && build.chain === chainIds[chain] && build.chainId === expectedChainId
+    && typeof build.wallet === 'string' && build.wallet.toLowerCase() === wallet.toLowerCase()
+    && Array.isArray(build.payloads) && build.payloads.length > 0
+    && build.payloads.every((payload) => payload?.kind === 'evm_transaction' && payload.chainId === expectedChainId
+      && typeof payload.from === 'string' && payload.from.toLowerCase() === wallet.toLowerCase()))
+}
+
 export async function uploadTokenImage(endpoint, image) {
   if (typeof image !== 'string' || !/^data:image\/(?:png|jpeg|gif|webp);base64,[A-Za-z0-9+/]+={0,2}$/.test(image)
     || image.length > 2_800_000) {
@@ -186,9 +202,11 @@ export async function getTransactionStatus(endpoint, chain, hash) {
 }
 
 export async function submitBuiltTransactions(endpoint, build, provider = globalThis.window?.ethereum, onStatus = () => {}, pollIntervalMs = 2_000) {
-  if (!provider?.request || !build || !['rhc', 'base'].includes(build.chain) || ![4663, 8453].includes(build.chainId)
+  if (!provider?.request || !build || !Object.hasOwn(numericChainIds, build.chain) || numericChainIds[build.chain] !== build.chainId
     || typeof build.wallet !== 'string' || !/^0x[a-fA-F0-9]{40}$/.test(build.wallet)
-    || !Array.isArray(build.payloads) || !build.payloads.length) {
+    || !Array.isArray(build.payloads) || !build.payloads.length
+    || !build.payloads.every((payload) => payload?.kind === 'evm_transaction' && payload.chainId === build.chainId
+      && typeof payload.from === 'string' && payload.from.toLowerCase() === build.wallet.toLowerCase())) {
     throw new Error('Connect an EVM wallet and build a valid Slipway transaction first.')
   }
   const expectedChainId = `0x${Number(build.chainId).toString(16)}`
