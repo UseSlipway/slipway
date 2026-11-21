@@ -1,0 +1,41 @@
+import React from 'react';
+import {Footer,Icon,Link} from './App';
+
+const principles=[
+ ['01','Wallet first','Slipway prepares and explains actions. The connected wallet remains the authority: users review and sign transactions with their own wallet.'],
+ ['02','One workflow','Token discovery, launch preparation, quotes, transaction builds and status tracking belong in one coherent interface.'],
+ ['03','Open interfaces','The product is designed to make its execution capabilities available through a public API, a developer SDK and MCP tooling.'],
+ ['04','Chain-aware execution','Each supported network and venue has its own rules. Slipway resolves the applicable path and surfaces fees and requirements before signing.'],
+];
+
+const phases=[
+ {month:'MONTH 01',title:'Make the API public',weeks:[
+  ['Weeks 1–2','API foundation','Stabilize the public API surface, publish endpoint and authentication guidance, and define versioning, limits and error conventions.'],
+  ['Weeks 3–4','Developer preview','Open a documented preview for token resolution, market data, quotes, unsigned builds and transaction status. Add request examples and an integration guide.'],
+ ]},
+ {month:'MONTH 02',title:'Ship the SDK and MCP',weeks:[
+  ['Weeks 5–6','TypeScript SDK','Release an early TypeScript SDK for the public API, with typed requests and responses, wallet-friendly transaction builds, and runnable examples.'],
+  ['Weeks 7–8','MCP server','Publish an MCP server that exposes the same read and build workflows to compatible AI clients. Document permissions and keep transaction signing in the user’s wallet.'],
+ ]},
+];
+
+function PageHero({label,title,copy,aside}){return <header className="public-hero"><span className="eyebrow">{label}</span><h1>{title}</h1><p>{copy}</p>{aside&&<span className="public-hero-aside">{aside}</span>}</header>}
+
+function Whitepaper(){return <main className="public-page whitepaper-page"><PageHero label="SLIPWAY · WHITEPAPER" title={<>Open execution.<br/><em>Your wallet signs.</em></>} copy="Slipway is an interface and execution layer for launching, discovering and trading onchain tokens across supported networks." aside="VERSION 1.0 · NOVEMBER 2026"/>
+ <section className="paper-thesis"><span className="eyebrow">THE THESIS</span><div><h2>Onchain actions should be easier to reach and easier to inspect.</h2><p>Crypto workflows are fragmented across apps, chains and venues. Slipway brings the steps together while keeping transaction authority with the person using it. The service can resolve a route, prepare a quote and build an unsigned transaction; only the user’s wallet can authorize that transaction.</p></div></section>
+ <section className="paper-section"><div className="paper-section-heading"><span className="eyebrow">01 — THE PRODUCT</span><h2>One path from intent<br/>to onchain action.</h2></div><div className="paper-copy"><p>Slipway connects token discovery, launch setup and trading to a consistent workflow. A user selects a network and venue, supplies the needed details, reviews a quote, and signs the resulting transaction in their wallet.</p><p>For developers, the same capabilities are being shaped into an API, SDK and MCP interface. Apps and agents can request information and prepare actions without receiving custody of user funds or keys.</p></div></section>
+ <section className="paper-principles">{principles.map(([n,title,copy])=><article key={n}><span>{n}</span><h3>{title}</h3><p>{copy}</p></article>)}</section>
+ <section className="paper-section paper-architecture"><div className="paper-section-heading"><span className="eyebrow">02 — HOW IT WORKS</span><h2>Preparation is separate<br/>from authorization.</h2></div><div className="paper-copy"><ol><li><b>Resolve.</b> Identify a token, supported chain and relevant venue or pool.</li><li><b>Quote.</b> Return expected output, fees, route details, requirements and expiry where available.</li><li><b>Build.</b> Prepare an unsigned transaction for the selected action.</li><li><b>Review and sign.</b> The user checks the details and approves through their wallet.</li><li><b>Track.</b> Follow submission and confirmation, then show the resulting transaction reference.</li></ol><p>Quotes and routes can change as onchain state changes. The transaction is ultimately subject to the wallet’s review, contract conditions and network execution.</p></div></section>
+ <section className="paper-custody"><span className="eyebrow">03 — CUSTODY AND CONTROL</span><h2>Connecting a wallet does not give Slipway your keys.</h2><p>Slipway does not ask users to deposit assets into a Slipway-controlled account to use the described wallet flows. Private keys remain with the user’s wallet. A connection can expose a public address and request wallet actions; it does not itself authorize a transfer. Each transaction requires wallet approval, and users should inspect its destination, amount and permissions before signing.</p></section>
+ <section className="paper-section"><div className="paper-section-heading"><span className="eyebrow">04 — NETWORKS</span><h2>Built for multiple venues,<br/>with chain-specific rules.</h2></div><div className="paper-copy"><p>Slipway currently focuses on Robinhood Chain and Base. Launch and trading integrations are venue-specific, and available actions depend on the network, venue, token and liquidity state. BNB Chain is presented as coming soon.</p><p>Market information is provided for discovery and context. It can be delayed, incomplete or temporarily unavailable, and a displayed pool does not guarantee that a trade route is available.</p></div></section>
+ <section className="paper-outro"><span className="eyebrow">THE NEXT CHAPTER</span><h2>Open the execution layer<br/>to more builders.</h2><p>The next two months are focused on making Slipway’s capabilities easier to integrate: a public API, a TypeScript SDK and an MCP server.</p><Link to="/roadmap" className="button">Read the roadmap <Icon name="arrow"/></Link></section>
+ <Footer/></main>}
+
+function Roadmap(){return <main className="public-page roadmap-page"><PageHero label="SLIPWAY · ROADMAP" title={<>A wider way<br/><em>to build.</em></>} copy="Over the next two months, we plan to open Slipway’s execution workflows to developers through a public API, SDK and MCP server." aside="2-MONTH PLAN · 8 WEEKS"/>
+ <section className="roadmap-intro"><span className="eyebrow">THE FOCUS</span><p>Start with a reliable, documented API. Then make it practical to integrate from applications and AI-assisted tools. The API is the shared foundation; the SDK and MCP server provide different ways to use it.</p><span className="roadmap-note">Planned sequence. Scope and timing may change as implementation and user feedback shape the work.</span></section>
+ <div className="roadmap-months">{phases.map((phase,index)=><section className="roadmap-month" key={phase.month}><header><span>{phase.month}</span><h2>{phase.title}</h2><b>0{index+1}</b></header><div className="roadmap-weeks">{phase.weeks.map(([period,title,copy],i)=><article key={period}><span className="roadmap-period">{period}</span><div><span className="eyebrow">{index===0&&i===0?'FOUNDATION':index===0?'PREVIEW':index===1&&i===0?'LIBRARY':'TOOLING'}</span><h3>{title}</h3><p>{copy}</p></div><span className="roadmap-status">PLANNED</span></article>)}</div></section>)}</div>
+ <section className="roadmap-outcomes"><span className="eyebrow">WHAT THIS ENABLES</span><div><article><span>API</span><p>Integrate Slipway workflows directly into products.</p></article><article><span>SDK</span><p>Build with typed primitives and ready-to-adapt examples.</p></article><article><span>MCP</span><p>Let compatible clients inspect markets and prepare actions with wallet approval retained by the user.</p></article></div></section>
+ <section className="paper-outro"><span className="eyebrow">READ THE THESIS</span><h2>Preparation can be open.<br/>Signing stays yours.</h2><p>See how Slipway connects token discovery, launch and trading workflows.</p><Link to="/whitepaper" className="button">Read the whitepaper <Icon name="arrow"/></Link></section>
+ <Footer/></main>}
+
+export default function PublicPages({type}){return type==='roadmap'?<Roadmap/>:<Whitepaper/>}
