@@ -21,6 +21,8 @@ jobs:
           bun-version: "1.4.2"
       - run: bun install --frozen-lockfile --ignore-scripts
       - run: bun test
+        env:
+          DATABASE_URL: postgres://slipway:slipway@127.0.0.1:5432/slipway_test
       - run: bun run check
       - name: Build production image
         run: docker build --build-arg APP_COMMIT_SHA=${{ github.sha }} --tag slipway-backend:ci .

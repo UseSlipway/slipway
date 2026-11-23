@@ -16,5 +16,14 @@
     "transactionHash": "0x22542a2b5ca7aca87b235e25c69405a46e94214c6328d31678e76c9b98886929",
     "blockNumber": 118855360,
     "verifiedOnChain": true
+  },
+  "restrictedFeeRouter": {
+    "contract": "SlipwayFeeRouter",
+    "address": "0xDf5c82a4e0d905f467dd93c9ff72496F31E9D074",
+    "feeRecipient": "0x7aD8085132Ee3C945e06f618D64EB374664B5054",
+    "deployer": "0xdbd635554a2ca93afabe90d196830bc0eb55933f",
+    "transactionHash": "0x83ced38f7417b77e26f473c4656102522553161857a74e718f82193b877d21e0",
+    "blockNumber": 121271869,
+    "verifiedOnChain": true
   }
 }
