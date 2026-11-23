@@ -1,0 +1,13 @@
+title = "Slipway secret scanning rules"
+
+[[allowlists]]
+description = "Empty example setting is configuration documentation, not a credential."
+paths = ['''backend/\.env\.example''']
+regexTarget = "line"
+regexes = ['''^X402_FACILITATOR_PRIVATE_KEY=$''']
+
+[[allowlists]]
+description = "Private planning documents use the phrase 'keyless reads'; they contain no key material."
+paths = ['''technical-docs/(frontend/)?Slipway_Overview\.md''']
+regexTarget = "line"
+regexes = ['''keyless reads''']

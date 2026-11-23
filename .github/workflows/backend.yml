@@ -11,6 +11,8 @@ jobs:
   check:
     if: github.repository == 'UseSlipway/slipway'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     defaults:
       run:
         working-directory: backend
@@ -18,7 +20,7 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6
         with:
-          bun-version: "1.4.2"
+          bun-version: "1.4.5"
       - run: bun install --frozen-lockfile --ignore-scripts
       - run: bun test
         env:
@@ -58,6 +60,8 @@ jobs:
     needs: publish
     if: github.repository == 'UseSlipway/slipway' && github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - name: Trigger Render deployment when configured
         env:

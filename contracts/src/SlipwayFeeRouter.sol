@@ -91,6 +91,8 @@ contract SlipwayFeeRouter {
         address integratorRecipient
     );
 
+    /// @notice Configures the immutable chain-specific venues and fee recipient.
+    /// @dev The deployment script supplies verified addresses for the selected chain.
     constructor(
         address feeRecipient_,
         address uniswapV3SwapRouter_,
@@ -299,5 +301,7 @@ contract SlipwayFeeRouter {
         return abi.decode(result, (uint256));
     }
 
+    /// @notice Accepts native value returned by a configured venue or unwrapped WETH.
+    /// @dev Direct donations are not recoverable and are excluded from later trade deltas.
     receive() external payable {}
 }

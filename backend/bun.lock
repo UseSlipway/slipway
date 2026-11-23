@@ -5,22 +5,25 @@
     "": {
       "name": "@slipway/backend",
       "dependencies": {
-        "@x402/core": "2.25.0",
-        "@x402/evm": "2.25.0",
+        "@x402/core": "2.32.0",
+        "@x402/evm": "2.32.0",
         "clanker-sdk": "4.2.18",
-        "dotenv": "^16.6.1",
-        "express": "^5.1.0",
-        "pg": "^8.16.3",
-        "viem": "^2.56.8",
-        "zod": "^4.6.5",
+        "dotenv": "16.6.1",
+        "express": "5.3.0",
+        "pg": "8.23.1",
+        "viem": "2.58.0",
+        "zod": "4.6.7",
       },
       "devDependencies": {
-        "@types/bun": "latest",
-        "@types/express": "^5.0.3",
-        "@types/pg": "^8.15.5",
-        "typescript": "^5.9.2",
+        "@types/bun": "1.4.4",
+        "@types/express": "5.0.6",
+        "@types/pg": "8.23.1",
+        "typescript": "5.9.3",
       },
     },
+  },
+  "overrides": {
+    "uuid": "11.1.1",
   },
   "packages": {
     "@adraffy/ens-normalize": ["@adraffy/ens-normalize@1.11.1", "", {}, "sha512-nhCBV3quEgesuf7c7KYfperqSS14T8bYuvJ8PcLJp6znkZpFc0AuW4qBtr8eKVyPPe/8RSr7sglCWPU5eaxwKQ=="],
@@ -83,9 +86,9 @@
 
     "@types/serve-static": ["@types/serve-static@2.2.0", "", { "dependencies": { "@types/http-errors": "*", "@types/node": "*" } }, "sha512-8mam4H1NHLtu7nmtalF7eyBH14QyOASmcxHhSfEoRyr0nP/YdoesEtU+uSRvMe96TW/HPTtkoKqQLl53N7UXMQ=="],
 
-    "@x402/core": ["@x402/core@2.25.0", "", { "dependencies": { "zod": "^3.24.2" } }, "sha512-5Ys0XYz3FKutxVKoXC46R/XPT/oaAbuj7ahzrlVHwQxZJPH9u6u91IOh0ztz+7G/zYGsaXR8l3ety205QtEnUw=="],
+    "@x402/core": ["@x402/core@2.32.0", "", { "dependencies": { "zod": "^4.6.6" } }, "sha512-HyS8vbaR3XP79EIATKGMt8eL0Ql46yrfVDrtv1Inmlx4qJl4NU61cJmTh/pSGOCJIeb7ETNhWR/GQ4XsWZcQIA=="],
 
-    "@x402/evm": ["@x402/evm@2.25.0", "", { "dependencies": { "@x402/core": "~2.25.0", "viem": "^2.48.11", "zod": "^3.24.2" } }, "sha512-EmnL4MyGW8weEUlq0qC1uJUeoBmtp9GWGwyPl+qkC0CYItRHn748puhYAxK8GsrofscQrt63HsFCB0Gp3iEROA=="],
+    "@x402/evm": ["@x402/evm@2.32.0", "", { "dependencies": { "@x402/core": "~2.32.0", "viem": "^2.48.11", "zod": "^4.6.6" } }, "sha512-dgsBYsUGs2Qem2NVV5QkhpyWJ4dssigE4LJ662LKcN1+9PKxBbX2Q5l2dpzkmHmXXzUoyapG5yBkYhMkckRZ7Q=="],
 
     "abitype": ["abitype@1.2.3", "", { "peerDependencies": { "typescript": ">=5.0.4", "zod": "^3.22.0 || ^4.0.0" }, "optionalPeers": ["typescript", "zod"] }, "sha512-Ofer5QUnuUdTFsBRwARMoWKOH1ND5ehwYhJ3OJ/BQO+StkwQjHw0XyVh4vDttzHB7QOFhPHa/o413PJ82gU/Tg=="],
 
@@ -357,7 +360,7 @@
 
     "util-deprecate": ["util-deprecate@1.0.2", "", {}, "sha512-EPD5q1uXyFxJpCrLnCc1nHnq3gOa6DZBocAIiI2TaSCA7VCJ1UJDMagCzIkXNsUYfD1daK//LTEQ8xiIbrHtcw=="],
 
-    "uuid": ["uuid@9.0.1", "", { "bin": { "uuid": "dist/bin/uuid" } }, "sha512-b+1eJOlsR9K8HJpow9Ok3fiWOWSIcIzXodvv0rQjVoOVNpWMpxf1wZNpt4y9h10odCNrqnYp1OBzRktckBe3sA=="],
+    "uuid": ["uuid@11.1.1", "", { "bin": { "uuid": "dist/esm/bin/uuid" } }, "sha512-vIYxrBCC/N/K+Js3qSN88go7kIfNPssr/hHCesKCQNAjmgvYS2oqr69kIufEG+O4+PfezOH4EbIeHCfFov8ZgQ=="],
 
     "vary": ["vary@1.1.2", "", {}, "sha512-BNGbWLfd0eUPabhkXUVm0j8uuvREyTh5ovRa/dyow/BqAbZJyC+5fU+IzQOzmAKzYqYRAISoRhdQr3eIZ/PXqg=="],
 
@@ -380,10 +383,6 @@
     "@ethereumjs/util/ethereum-cryptography": ["ethereum-cryptography@2.2.1", "", { "dependencies": { "@noble/curves": "1.4.2", "@noble/hashes": "1.4.0", "@scure/bip32": "1.4.0", "@scure/bip39": "1.3.0" } }, "sha512-r/W8lkHSiTLxUxW8Rf3u4HGB0xQweG2RyETjywylKZSzLWoWAijRz8WCuOtJ6wah+avllXBqZuk29HCCvhEIRg=="],
 
     "@types/node/undici-types": ["undici-types@8.9.0", "", {}, "sha512-KTDyRTYX8sWmKXAikPHHSyc63CRPETMctyjKFupcC6OBLXT3xsN0e9aF7m+mIXutFWpUXuedtowG7iLOzp0kQg=="],
-
-    "@x402/core/zod": ["zod@3.25.76", "", {}, "sha512-gzUt/qt81nXsFGKIFcC3YnfEAx5NkunCfnDlvuBSSFS02bcXu4Lmea0AFIUwbLWxWPx3d9p8S5QoaujKcNQxcQ=="],
-
-    "@x402/evm/zod": ["zod@3.25.76", "", {}, "sha512-gzUt/qt81nXsFGKIFcC3YnfEAx5NkunCfnDlvuBSSFS02bcXu4Lmea0AFIUwbLWxWPx3d9p8S5QoaujKcNQxcQ=="],
 
     "ethereum-cryptography/@noble/curves": ["@noble/curves@1.9.0", "", { "dependencies": { "@noble/hashes": "1.8.0" } }, "sha512-7YDlXiNMdO1YZeH6t/kvopHHbIZzlxrCV9WLqCY6QhcXOoXiNCMDqJIglZ9Yjx5+w7Dz30TITFrlTjnRg7sKEg=="],
 

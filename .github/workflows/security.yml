@@ -1,0 +1,46 @@
+name: Security analysis
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  contract-analysis:
+    if: github.repository == 'UseSlipway/slipway'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    defaults:
+      run:
+        working-directory: contracts
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: foundry-rs/foundry-toolchain@908c540300062bd5a7e473851cdb4282204cee09
+        with:
+          version: v1.8.5
+      - run: forge build
+      - run: python -m pip install --disable-pip-version-check slither-analyzer==0.11.6
+      - run: slither . --exclude-dependencies --fail-none --json /tmp/slither-results.json
+      - run: python ../scripts/check_slither_baseline.py /tmp/slither-results.json slither-baseline.json
+
+  source-analysis:
+    if: github.repository == 'UseSlipway/slipway'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - name: Run Semgrep security rules
+        run: |
+          python -m pip install --disable-pip-version-check semgrep==1.186.0
+          semgrep scan --config p/security-audit --error contracts/src backend/src api scripts
+      - name: Install pinned Gitleaks binary
+        run: |
+          curl --fail --silent --show-error --location --output /tmp/gitleaks.tar.gz https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_linux_x64.tar.gz
+          echo '551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb  /tmp/gitleaks.tar.gz' | sha256sum --check --status
+          tar -xzf /tmp/gitleaks.tar.gz -C /tmp gitleaks
+      - name: Scan repository history for secrets
+        run: /tmp/gitleaks git . --redact

@@ -24,6 +24,27 @@
     "deployer": "0xdbd635554a2ca93afabe90d196830bc0eb55933f",
     "transactionHash": "0x292fc8ccf8da4391ac7d3fb17c1017bae6376385ae8a6caa3bceaeb48123a772",
     "blockNumber": 61159239,
-    "verifiedOnChain": true
+    "verifiedOnChain": true,
+    "runtimeBytecodeHash": "sha256:9c2728dfaecb2edf71d6f7dd66b773a7a24a623a62304b64bdda4f076322d8ba",
+    "checkedAtBlock": 61177047,
+    "verifiedConfiguration": {
+      "feeRecipient": "0x7ad8085132ee3c945e06f618d64eb374664b5054",
+      "uniswapV3SwapRouter": "0x2626664c2603336e57b271c5c0b26f421741e481",
+      "universalRouter": "0x6ff5693b99212da76ad316178a184ab56d299b43",
+      "permit2": "0x000000000022d473030f116ddee9f6b43ac78ba3",
+      "wrappedNative": "0x4200000000000000000000000000000000000006",
+      "ponsFactory": "0x0000000000000000000000000000000000000000"
+    },
+    "buildSettings": {
+      "compiler": "0.8.30+commit.73712a01",
+      "evmVersion": "osaka",
+      "optimizerRuns": 200,
+      "bytecodeHash": "ipfs"
+    },
+    "explorerAddressUrl": "https://basescan.org/address/0xDf5c82a4e0d905f467dd93c9ff72496F31E9D074",
+    "explorerTransactionUrl": "https://basescan.org/tx/0x292fc8ccf8da4391ac7d3fb17c1017bae6376385ae8a6caa3bceaeb48123a772",
+    "deployedSourceCommit": "ab11e73a7315c3e7be43e799a871bea2b56fe42e",
+    "deployedBuildHash": "sha256:36f735ddfa6057a29f4739899d80b474ef4249f3e4e76d8a57e5c0cbefa585ec",
+    "verificationArtifactHash": "sha256:f6105df0a5f83868f6cd65bd2acde2fa98c33d0a9f1146967a4737ba3aec791a"
   }
 }

@@ -11,6 +11,8 @@ jobs:
   contracts:
     if: github.repository == 'UseSlipway/slipway'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     defaults:
       run:
         working-directory: contracts

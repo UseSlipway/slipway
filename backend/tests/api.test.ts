@@ -164,6 +164,31 @@ describe("backend API surface", () => {
     expect(workspace.status).toBe(401);
   });
 
+  test("keeps x402 verification authenticated and rejects assets outside the configured allowlist", async () => {
+    const names = ["X402_ENABLED", "X402_FACILITATOR_API_KEY", "X402_BASE_USDC_ADDRESS", "X402_BASE_PAY_TO"] as const;
+    const previous = Object.fromEntries(names.map((name) => [name, process.env[name]]));
+    process.env.X402_ENABLED = "true";
+    process.env.X402_FACILITATOR_API_KEY = "x402-test-key";
+    process.env.X402_BASE_USDC_ADDRESS = "0x00000000000000000000000000000000000000a1";
+    process.env.X402_BASE_PAY_TO = "0x00000000000000000000000000000000000000b2";
+    const requestBody = {
+      x402Version: 2,
+      paymentPayload: { accepted: { scheme: "exact", network: "eip155:8453", asset: "0x00000000000000000000000000000000000000ff", payTo: "0x00000000000000000000000000000000000000b2", amount: "10" } },
+      paymentRequirements: { scheme: "exact", network: "eip155:8453", asset: "0x00000000000000000000000000000000000000ff", payTo: "0x00000000000000000000000000000000000000b2", amount: "10" }
+    };
+    try {
+      const unauthorized = await apiFetch(`${origin}/v1/x402/verify`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(requestBody) });
+      const disallowedAsset = await apiFetch(`${origin}/v1/x402/verify`, { method: "POST", headers: { "Content-Type": "application/json", Authorization: "Bearer x402-test-key" }, body: JSON.stringify(requestBody) });
+      expect(unauthorized.status).toBe(401);
+      expect(disallowedAsset.status).toBe(400);
+    } finally {
+      for (const name of names) {
+        const value = previous[name];
+        if (value === undefined) delete process.env[name]; else process.env[name] = value;
+      }
+    }
+  });
+
   test("validates event feed filters before database access", async () => {
     const badCursor = await apiFetch(`${origin}/v1/events?after=-1`);
     const badChain = await apiFetch(`${origin}/v1/events?chain=solana`);

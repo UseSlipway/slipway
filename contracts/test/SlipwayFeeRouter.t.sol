@@ -31,7 +31,14 @@ contract MockToken {
 }
 
 contract MockPermit2 {
-    function approve(address, address, uint160, uint48) external {}
+    mapping(address => mapping(address => mapping(address => uint160))) public allowance;
+    function approve(address token, address spender, uint160 amount, uint48) external { allowance[msg.sender][token][spender] = amount; }
+    function transferFrom(address from, address to, uint160 amount, address token) external {
+        uint160 allowed = allowance[from][token][msg.sender];
+        require(allowed >= amount, "permit2 allowance");
+        allowance[from][token][msg.sender] = allowed - amount;
+        require(MockToken(token).transferFrom(from, to, amount), "token pull");
+    }
 }
 
 contract MockWrappedNative is MockToken {
@@ -50,6 +57,20 @@ contract MockSwapRouter {
         require(MockToken(tokenIn).transferFrom(msg.sender, address(this), amountIn), "pull");
         MockToken(tokenOut).mint(recipient, amountOut);
     }
+}
+
+contract MockUniversalRouter {
+    MockPermit2 private immutable permit2;
+    constructor(MockPermit2 permit2_) { permit2 = permit2_; }
+    function swap(address tokenIn, address tokenOut, address recipient, uint160 amountIn, uint256 amountOut, bool nativeInput, bool nativeOutput) external payable {
+        if (nativeInput) require(msg.value == amountIn, "native input");
+        else permit2.transferFrom(msg.sender, address(this), amountIn, tokenIn);
+        if (nativeOutput) {
+            (bool sent,) = recipient.call{value: amountOut}("");
+            require(sent, "native output");
+        } else MockToken(tokenOut).mint(recipient, amountOut);
+    }
+    receive() external payable {}
 }
 
 contract MockPonsFactory is IPonsFactoryLookup {
@@ -93,6 +114,7 @@ contract SlipwayFeeRouterTest {
     MockToken private tokenOut;
     MockSwapRouter private swapRouter;
     MockPermit2 private permit2;
+    MockUniversalRouter private universalRouter;
     MockWrappedNative private wrappedNative;
     MockPonsFactory private ponsFactory;
     SlipwayFeeRouter private router;
@@ -104,9 +126,10 @@ contract SlipwayFeeRouterTest {
         tokenOut = new MockToken();
         swapRouter = new MockSwapRouter();
         permit2 = new MockPermit2();
+        universalRouter = new MockUniversalRouter(permit2);
         wrappedNative = new MockWrappedNative();
         ponsFactory = new MockPonsFactory();
-        router = new SlipwayFeeRouter(address(this), address(swapRouter), address(swapRouter), address(permit2), address(wrappedNative), address(ponsFactory));
+        router = new SlipwayFeeRouter(address(this), address(swapRouter), address(universalRouter), address(permit2), address(wrappedNative), address(ponsFactory));
     }
 
     function testRejectsArbitraryVenueEvenWhenVictimHasApprovedRouter() external {
@@ -140,6 +163,48 @@ contract SlipwayFeeRouterTest {
         require(received == 50, "wrong measured output");
         require(tokenOut.balanceOf(address(this)) == 50, "output not delivered");
         require(tokenIn.allowance(address(router), address(swapRouter)) == 0, "venue approval not cleared");
+    }
+
+    function testAllowedV4RouteClearsTokenAndPermit2Allowances() external {
+        tokenIn.mint(address(this), 100);
+        tokenIn.approve(address(router), 100);
+        SlipwayFeeRouter.ExactInParams memory params = SlipwayFeeRouter.ExactInParams({
+            tokenIn: address(tokenIn), tokenOut: address(tokenOut), venue: address(universalRouter), amountIn: 100,
+            amountOutMin: 40, protocolFeeBps: 0, integratorFeeBps: 0, integratorRecipient: address(0)
+        });
+        bytes memory data = abi.encodeCall(MockUniversalRouter.swap, (address(tokenIn), address(tokenOut), address(router), uint160(100), 50, false, false));
+        require(router.executeExactInV4(params, data) == 50, "wrong v4 output");
+        require(tokenOut.balanceOf(address(this)) == 50, "v4 output not delivered");
+        require(tokenIn.allowance(address(router), address(permit2)) == 0, "Permit2 token approval remains");
+        require(permit2.allowance(address(router), address(tokenIn), address(universalRouter)) == 0, "Permit2 venue approval remains");
+    }
+
+    function testV4NativeInputUnwrapsAndExecutes() external {
+        vm.deal(address(wrappedNative), 100);
+        wrappedNative.mint(address(this), 100);
+        wrappedNative.approve(address(router), 100);
+        SlipwayFeeRouter.ExactInParams memory params = SlipwayFeeRouter.ExactInParams({
+            tokenIn: address(wrappedNative), tokenOut: address(tokenOut), venue: address(universalRouter), amountIn: 100,
+            amountOutMin: 40, protocolFeeBps: 0, integratorFeeBps: 0, integratorRecipient: address(0)
+        });
+        bytes memory data = abi.encodeCall(MockUniversalRouter.swap, (address(wrappedNative), address(tokenOut), address(router), uint160(100), 50, true, false));
+        require(router.executeExactInV4Native(params, true, false, data) == 50, "wrong native-input output");
+        require(tokenOut.balanceOf(address(this)) == 50, "native-input output not delivered");
+        require(address(router).balance == 0, "native input stranded");
+    }
+
+    function testV4NativeOutputWrapsAndDelivers() external {
+        vm.deal(address(universalRouter), 100);
+        tokenIn.mint(address(this), 100);
+        tokenIn.approve(address(router), 100);
+        SlipwayFeeRouter.ExactInParams memory params = SlipwayFeeRouter.ExactInParams({
+            tokenIn: address(tokenIn), tokenOut: address(wrappedNative), venue: address(universalRouter), amountIn: 100,
+            amountOutMin: 40, protocolFeeBps: 0, integratorFeeBps: 0, integratorRecipient: address(0)
+        });
+        bytes memory data = abi.encodeCall(MockUniversalRouter.swap, (address(tokenIn), address(wrappedNative), address(router), uint160(100), 50, false, true));
+        require(router.executeExactInV4Native(params, false, true, data) == 50, "wrong native-output amount");
+        require(wrappedNative.balanceOf(address(this)) == 50, "wrapped native output not delivered");
+        require(address(router).balance == 0, "native output stranded");
     }
 
     function testPonsPartialFillRefundsNativeInputToTrader() external {

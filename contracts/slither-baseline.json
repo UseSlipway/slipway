@@ -1,0 +1,23 @@
+[
+  {
+    "check": "arbitrary-send-eth",
+    "impact": "High",
+    "contract": "SlipwayFeeRouter",
+    "function": "_executeVenue",
+    "rationale": "The venue is constrained by public venue-specific entrypoints; Pons curves must match the immutable factory's token/curve record. Native input is sent only to the checked venue, and native deltas are refunded to the caller. Regression tests cover arbitrary-venue rejection and Pons refunds."
+  },
+  {
+    "check": "reentrancy-eth",
+    "impact": "High",
+    "contract": "SlipwayFeeRouter",
+    "function": "_executeExactIn",
+    "rationale": "The entered state is set before token, Permit2, venue, and refund interactions and reset only after settlement. Every external execution entrypoint shares this private guarded implementation."
+  },
+  {
+    "check": "uninitialized-local",
+    "impact": "Medium",
+    "contract": "SlipwayFeeRouter",
+    "function": "executeExactInPonsNative",
+    "rationale": "The local is assigned on the successful factory return path; the catch branch reverts before the value is read."
+  }
+]

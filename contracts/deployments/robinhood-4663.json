@@ -24,6 +24,27 @@
     "deployer": "0xdbd635554a2ca93afabe90d196830bc0eb55933f",
     "transactionHash": "0x83ced38f7417b77e26f473c4656102522553161857a74e718f82193b877d21e0",
     "blockNumber": 121271869,
-    "verifiedOnChain": true
+    "verifiedOnChain": true,
+    "runtimeBytecodeHash": "sha256:9c2728dfaecb2edf71d6f7dd66b773a7a24a623a62304b64bdda4f076322d8ba",
+    "checkedAtBlock": 121303260,
+    "verifiedConfiguration": {
+      "feeRecipient": "0x7ad8085132ee3c945e06f618d64eb374664b5054",
+      "uniswapV3SwapRouter": "0xcaf681a66d020601342297493863e78c959e5cb2",
+      "universalRouter": "0x8876789976decbfcbbbe364623c63652db8c0904",
+      "permit2": "0x000000000022d473030f116ddee9f6b43ac78ba3",
+      "wrappedNative": "0x0bd7d308f8e1639fab988df18a8011f41eacad73",
+      "ponsFactory": "0x7ed598bcef8bd9edd8c97a195c6d13f40801ec7e"
+    },
+    "buildSettings": {
+      "compiler": "0.8.30+commit.73712a01",
+      "evmVersion": "osaka",
+      "optimizerRuns": 200,
+      "bytecodeHash": "ipfs"
+    },
+    "explorerAddressUrl": "https://robinhoodchain.blockscout.com/address/0xDf5c82a4e0d905f467dd93c9ff72496F31E9D074",
+    "explorerTransactionUrl": "https://robinhoodchain.blockscout.com/tx/0x83ced38f7417b77e26f473c4656102522553161857a74e718f82193b877d21e0",
+    "deployedSourceCommit": "ab11e73a7315c3e7be43e799a871bea2b56fe42e",
+    "deployedBuildHash": "sha256:36f735ddfa6057a29f4739899d80b474ef4249f3e4e76d8a57e5c0cbefa585ec",
+    "verificationArtifactHash": "sha256:f6105df0a5f83868f6cd65bd2acde2fa98c33d0a9f1146967a4737ba3aec791a"
   }
 }
