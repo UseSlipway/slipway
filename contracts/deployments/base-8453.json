@@ -26,7 +26,7 @@
     "blockNumber": 61159239,
     "verifiedOnChain": true,
     "runtimeBytecodeHash": "sha256:9c2728dfaecb2edf71d6f7dd66b773a7a24a623a62304b64bdda4f076322d8ba",
-    "checkedAtBlock": 61341268,
+    "checkedAtBlock": 61344717,
     "verifiedConfiguration": {
       "feeRecipient": "0x7ad8085132ee3c945e06f618d64eb374664b5054",
       "uniswapV3SwapRouter": "0x2626664c2603336e57b271c5c0b26f421741e481",

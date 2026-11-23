@@ -64,7 +64,15 @@ def load_env() -> None:
 
 def rpc(url: str, method: str, params: list[object]) -> object:
     body = json.dumps({"jsonrpc": "2.0", "id": 1, "method": method, "params": params}).encode()
-    request = urllib.request.Request(url, body, {"Content-Type": "application/json"})
+    request = urllib.request.Request(
+        url,
+        body,
+        {
+            "Content-Type": "application/json",
+            "Accept": "application/json",
+            "User-Agent": "SlipwayDeploymentVerifier/1.0 (+https://tryslipway.com)",
+        },
+    )
     try:
         with urllib.request.urlopen(request, timeout=20) as response:
             payload = json.load(response)
