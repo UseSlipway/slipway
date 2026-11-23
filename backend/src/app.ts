@@ -1,7 +1,7 @@
 import express from "express";
 import { randomUUID } from "node:crypto";
 import { timingSafeEqual } from "node:crypto";
-import { publicChainConfig, getChainConfig } from "./chains/config";
+import { publicChainConfig, getChainConfig, getRestrictedFeeRouterAddress } from "./chains/config";
 import { healthRouter } from "./routes/health";
 import { apiRouter } from "./routes/v1";
 import { tokenRouter } from "./routes/tokens";
@@ -69,9 +69,7 @@ app.get("/ready/", async (_request, response) => {
       const [chainId, factoryCode, feeRouterCode] = await Promise.all([
         client.getChainId(),
         client.getCode({ address: config.uniswapV3.factory }),
-        process.env[config.restrictedFeeRouterEnv]
-          ? client.getCode({ address: process.env[config.restrictedFeeRouterEnv] as `0x${string}` })
-          : Promise.resolve("0x")
+        client.getCode({ address: getRestrictedFeeRouterAddress(config) })
       ]);
       checks[`${id}Rpc`] = chainId === config.chainId ? "ok" : "unavailable";
       checks[`${id}UniswapV3`] = factoryCode && factoryCode !== "0x" ? "ok" : "unavailable";

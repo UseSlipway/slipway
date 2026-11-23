@@ -2,13 +2,13 @@ import { Router } from "express";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { decodeFunctionResult, encodeAbiParameters, encodeFunctionData, formatUnits, getAddress, isAddress, parseAbi, parseUnits, type Address } from "viem";
-import { getChainConfig, getPublicClient, UNISWAP_V3_FEES, v3FactoryAbi, v3PoolAbi, erc20ReadAbi } from "../chains/config";
+import { getChainConfig, getPublicClient, getRestrictedFeeRouterAddress, UNISWAP_V3_FEES, v3FactoryAbi, v3PoolAbi, erc20ReadAbi } from "../chains/config";
 import { clientRateSubject, consumeDatabaseRateLimit } from "../middleware/rateLimit";
 
 export const tradeRouter = Router();
-// Trading remains opt-in until the replacement fee routers are deployed and configured.
-// The deployed routers have an unrestricted venue call and must not receive new approvals.
-function tradingEnabled() { return process.env.SLIPWAY_TRADING_ENABLED === "true"; }
+// Trading uses the restricted routers deployed on both supported chains. Set the flag to
+// "false" to pause trading without changing the deployment.
+function tradingEnabled() { return process.env.SLIPWAY_TRADING_ENABLED !== "false"; }
 const quoteSchema = z.object({ chain: z.enum(["rhc", "base"]), token: z.string().refine(isAddress), side: z.enum(["buy", "sell"]), amount: z.union([z.string(), z.number()]), amountType: z.literal("in").optional(), quoteAsset: z.string().optional(), slippageBps: z.number().int().min(0).max(5000) }).strict();
 const amountSchema = z.string().regex(/^(?:\d+)(?:\.\d+)?$/).max(78);
 const PROTOCOL_FEE_BPS = 20;
@@ -201,8 +201,7 @@ tradeRouter.post("/quote", async (request, response) => {
           try {
             const launch = await client.readContract({ address: ponsFactory, abi: ponsLaunchLookupAbi, functionName: "getLaunchedToken", args: [token] });
             if (!launch.exists || launch.phase !== 0 || launch.pairToken !== ZERO_ADDRESS || launch.curve === ZERO_ADDRESS) return null;
-            const feeRouter = process.env[config.restrictedFeeRouterEnv];
-            if (!feeRouter || !isAddressValue(feeRouter)) return null;
+            const feeRouter = getRestrictedFeeRouterAddress(config);
             const curve = launch.curve;
             const [reserves, sellableTokens, feeBps, creatorTaxBps, rawSnipeBps] = await Promise.all([
               client.readContract({ address: curve, abi: ponsCurveAbi, functionName: "getReserves" }),
@@ -286,8 +285,8 @@ tradeRouter.post("/build/trade", async (request, response) => {
     if (!config) { response.status(400).json({ error: "Quote chain is unsupported" }); return; }
     const isPonsCurve = quote.venue === "pons-curve";
     const isV4 = quote.venue === "uniswap-v4";
-    const feeRouter = process.env[config.restrictedFeeRouterEnv];
-    if (!feeRouter || !isAddressValue(feeRouter)) { response.status(503).json({ error: "Restricted fee router is not configured for this chain" }); return; }
+    const feeRouter = getRestrictedFeeRouterAddress(config);
+    if (!isAddressValue(feeRouter)) { response.status(503).json({ error: "Restricted fee router configuration is invalid" }); return; }
 
     const tokenIn = getAddress(String(quote.inputToken));
     const tokenOut = getAddress(String(quote.outputToken));
