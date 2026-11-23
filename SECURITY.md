@@ -18,15 +18,17 @@ Please avoid accessing other users' data, disrupting live services, or submittin
 - Malicious token metadata delivered through APIs, webhooks, or MCP tools.
 - Webhook authentication, API authorization, and x402 payment verification.
 
-## Active router advisory — 2026-11-23
+## Router security advisory — 2026-11-23
 
-Trading is paused while replacement fee routers are prepared. The deployed legacy fee routers allow an arbitrary caller-selected venue call while users may have outstanding token allowances to the router. A malicious call can use those allowances to transfer a user's approved tokens.
+Trading uses restricted fee routers on Base and Robinhood Chain. The legacy fee routers listed below allow an arbitrary caller-selected venue call while users may have outstanding token allowances to the router. A malicious call can use those allowances to transfer a user's approved tokens. The restricted routers reject arbitrary venues, but existing approvals to legacy routers remain independently revocable and should be removed.
 
 If you previously approved a Slipway fee router, revoke each token allowance to these addresses on every network where you used Slipway:
 
 - Base: [`0x56d15a85d9f4ecec16c002dc5a02ef6b94c215c5`](https://basescan.org/address/0x56d15a85d9f4ecec16c002dc5a02ef6b94c215c5) and [`0xe7635ad3fda4df9800b63cdcd164669d31a6fdca`](https://basescan.org/address/0xe7635ad3fda4df9800b63cdcd164669d31a6fdca)
 - Robinhood Chain: [`0x56d15a85d9f4ecec16c002dc5a02ef6b94c215c5`](https://robinhoodchain.blockscout.com/address/0x56d15a85d9f4ecec16c002dc5a02ef6b94c215c5) and [`0xe7635ad3fda4df9800b63cdcd164669d31a6fdca`](https://robinhoodchain.blockscout.com/address/0xe7635ad3fda4df9800b63cdcd164669d31a6fdca)
 
-Do not grant new approvals to these addresses. Router approvals are specific to both the token and spender; revoke all token allowances granted to each listed spender. The API returns `503` for trade quote and build requests until the restricted replacements are deployed and configured.
+Do not grant new approvals to these legacy addresses. Router approvals are specific to both the token and spender; revoke all token allowances granted to each listed spender on both networks where you traded. The API returns `503` for trade quote and build requests only when `SLIPWAY_TRADING_ENABLED=false` or when a service is unavailable.
+
+The restricted router deployment address is [`0xDf5c82a4e0d905f467dd93c9ff72496F31E9D074`](https://basescan.org/address/0xDf5c82a4e0d905f467dd93c9ff72496F31E9D074) on Base and [`0xDf5c82a4e0d905f467dd93c9ff72496F31E9D074`](https://robinhoodchain.blockscout.com/address/0xDf5c82a4e0d905f467dd93c9ff72496F31E9D074) on Robinhood Chain. The deployment records include transaction hashes and block numbers.
 
 The public frontend's `API_KEY` is a server-to-server proxy credential. It prevents direct unauthenticated access to the backend host, but it is not an end-user authorization mechanism.
