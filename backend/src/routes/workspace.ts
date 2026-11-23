@@ -5,14 +5,25 @@ import { db } from "../db/index";
 
 export const workspaceRouter = Router();
 const challengeLifetimeMs = 5 * 60_000;
-const sessionLifetimeMs = 30 * 24 * 60 * 60_000;
+const sessionLifetimeMs = 7 * 24 * 60 * 60_000;
 const maxWorkspaceBytes = 3_800_000;
 const supportedChains = new Set(["rhc", "base"]);
 const addressPattern = /^0x[a-fA-F0-9]{40}$/;
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-function workspaceMessage(wallet: string, nonce: string, expiresAt: string) {
-  return `Sign this message to access your Slipway workspace.\n\nWallet: ${wallet}\nNonce: ${nonce}\nExpiration Time: ${expiresAt}`;
+function siweConfig() {
+  const domain = (process.env.SLIPWAY_AUTH_DOMAIN?.trim() || "tryslipway.com").toLowerCase();
+  const uriText = process.env.SLIPWAY_AUTH_URI?.trim() || `https://${domain}`;
+  try {
+    const uri = new URL(uriText);
+    const secureOrigin = uri.protocol === "https:";
+    const localOrigin = uri.protocol === "http:" && ["localhost", "127.0.0.1"].includes(uri.hostname);
+    if ((!secureOrigin && !localOrigin) || uri.host.toLowerCase() !== domain || uri.username || uri.password || uri.hash) return null;
+    return { domain, uri: uri.toString() };
+  } catch { return null; }
+}
+function workspaceMessage(wallet: string, nonce: string, issuedAt: string, expiresAt: string, chainId: number, domain: string, uri: string) {
+  return `${domain} wants you to sign in with your Ethereum account:\n${wallet}\n\nSign in to Slipway to access your saved drafts and watchlist.\n\nURI: ${uri}\nVersion: 1\nChain ID: ${chainId}\nNonce: ${nonce}\nIssued At: ${issuedAt}\nExpiration Time: ${expiresAt}`;
 }
 function tokenHash(token: string) { return createHash("sha256").update(token).digest("hex"); }
 function validDraft(value: unknown): value is Record<string, unknown> {
@@ -38,14 +49,18 @@ function validWatch(value: unknown): value is Record<string, unknown> {
 
 workspaceRouter.post("/challenge", async (request, response) => {
   const wallet = request.body?.wallet;
-  if (typeof wallet !== "string" || !isAddress(wallet)) {
-    response.status(400).json({ error: "Provide a valid EVM wallet address" });
+  const chainId = request.body?.chainId;
+  if (typeof wallet !== "string" || !isAddress(wallet) || ![4663, 8453].includes(chainId)) {
+    response.status(400).json({ error: "Provide a valid wallet and supported chain ID" });
     return;
   }
+  const auth = siweConfig();
+  if (!auth) { response.status(503).json({ error: "Wallet sign-in domain is not configured" }); return; }
   const normalized = getAddress(wallet).toLowerCase();
   const nonce = randomBytes(32).toString("hex");
+  const issuedAt = new Date().toISOString();
   const expiresAt = new Date(Date.now() + challengeLifetimeMs).toISOString();
-  const message = workspaceMessage(normalized, nonce, expiresAt);
+  const message = workspaceMessage(getAddress(wallet), nonce, issuedAt, expiresAt, chainId as number, auth.domain, auth.uri);
   try {
     await db.query("DELETE FROM wallet_workspace_sessions WHERE expires_at <= now()");
     await db.query("DELETE FROM wallet_workspace_challenges WHERE expires_at <= now()");
@@ -57,7 +72,7 @@ workspaceRouter.post("/challenge", async (request, response) => {
       [normalized, nonce, message, expiresAt]
     );
     if (!issued.rowCount) { response.status(429).json({ error: "A wallet challenge was recently issued; try again shortly" }); return; }
-    response.setHeader("Cache-Control", "no-store").json({ wallet: normalized, nonce, message, expiresAt });
+    response.setHeader("Cache-Control", "no-store").json({ wallet: normalized, chainId, nonce, message, expiresAt });
   } catch {
     response.status(503).json({ error: "Wallet workspace authentication is temporarily unavailable" });
   }
@@ -94,7 +109,7 @@ workspaceRouter.post("/verify", async (request, response) => {
   }
 });
 
-async function requireWorkspaceSession(request: Request, response: Response, next: NextFunction) {
+export async function requireWorkspaceSession(request: Request, response: Response, next: NextFunction) {
   const match = /^Bearer ([a-f0-9]{64})$/i.exec(request.header("authorization") ?? "");
   if (!match) { response.status(401).json({ error: "Sign with your wallet to access its workspace" }); return; }
   try {
@@ -109,6 +124,17 @@ async function requireWorkspaceSession(request: Request, response: Response, nex
     response.status(503).json({ error: "Wallet workspace is temporarily unavailable" });
   }
 }
+
+workspaceRouter.post("/revoke", requireWorkspaceSession, async (request, response) => {
+  try {
+    const match = /^Bearer ([a-f0-9]{64})$/i.exec(request.header("authorization") ?? "");
+    if (!match) { response.status(401).json({ error: "Wallet workspace session is missing" }); return; }
+    await db.query("DELETE FROM wallet_workspace_sessions WHERE token_hash = $1", [tokenHash(match[1]!)]);
+    response.setHeader("Cache-Control", "no-store").json({ revoked: true });
+  } catch {
+    response.status(503).json({ error: "Wallet workspace is temporarily unavailable" });
+  }
+});
 
 workspaceRouter.use(requireWorkspaceSession);
 workspaceRouter.get("/", async (_request, response) => {

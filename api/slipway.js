@@ -11,6 +11,7 @@ const routes = [
   { method: 'GET', pattern: /^v1\/workspace\/?$/ },
   { method: 'PUT', pattern: /^v1\/workspace\/?$/ },
   { method: 'POST', pattern: /^v1\/workspace\/(challenge|verify)$/ },
+  { method: 'POST', pattern: /^v1\/workspace\/revoke$/ },
   { method: 'POST', pattern: /^v1\/(quote|build\/trade|launch\/quote|build\/launch)$/ },
   { method: 'POST', pattern: /^v1\/x402\/(verify|settle)$/ },
 ]
@@ -45,6 +46,13 @@ export default async function handler(request, response) {
   const headers = new Headers({ accept: 'application/json' })
   if (request.headers['content-type']) headers.set('content-type', request.headers['content-type'])
   if (request.headers.authorization) headers.set('authorization', request.headers.authorization)
+  // Replace any client-supplied value; Vercel supplies x-real-ip at its edge.
+  const realIp = request.headers['x-real-ip']
+  const forwardedFor = request.headers['x-forwarded-for']
+  const clientIp = (typeof realIp === 'string' && realIp.trim())
+    || (typeof forwardedFor === 'string' && forwardedFor.split(',').at(-1)?.trim())
+    || 'unknown'
+  headers.set('x-slipway-client-ip', clientIp.slice(0, 128))
   if (path !== 'health' && path !== 'health/') {
     const apiKey = process.env.API_KEY?.trim()
     if (!apiKey) return response.status(503).json({ error: 'Slipway API authentication is not configured on this deployment' })

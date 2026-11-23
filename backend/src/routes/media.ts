@@ -1,5 +1,7 @@
 import { createHash, randomUUID } from "node:crypto";
 import { Router } from "express";
+import { requireWorkspaceSession } from "./workspace";
+import { consumeDatabaseRateLimit } from "../middleware/rateLimit";
 
 export const mediaRouter = Router();
 
@@ -29,7 +31,7 @@ function validImage(bytes: Buffer, mimeType: string) {
   return false;
 }
 
-mediaRouter.post("/media/images", async (request, response) => {
+mediaRouter.post("/media/images", requireWorkspaceSession, async (request, response) => {
   const credentials = cloudinaryCredentials();
   if (!credentials) {
     response.status(503).json({ error: "Image storage is not configured" });
@@ -48,6 +50,15 @@ mediaRouter.post("/media/images", async (request, response) => {
   const image = Buffer.from(match[2], "base64");
   if (!image.length || image.length > 2 * 1024 * 1024 || !validImage(image, mimeType)) {
     response.status(400).json({ error: "The uploaded image is invalid or exceeds 2 MB" });
+    return;
+  }
+
+  try {
+    if (await consumeDatabaseRateLimit("image-upload", response.locals.walletAddress as string, 10, 60 * 60)) {
+      response.setHeader("Retry-After", "3600").status(429).json({ error: "Image upload limit reached. Try again later." }); return;
+    }
+  } catch {
+    response.status(503).json({ error: "Image upload protection is temporarily unavailable" });
     return;
   }
 

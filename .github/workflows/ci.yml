@@ -20,3 +20,4 @@ jobs:
         with:
           version: v1.8.5
       - run: forge build
+      - run: forge test

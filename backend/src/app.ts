@@ -16,7 +16,6 @@ import { mediaRouter } from "./routes/media";
 
 export const app = express();
 app.disable("x-powered-by");
-app.use(express.json({ limit: "4mb" }));
 app.use((request, response, next) => {
   const requestId = randomUUID();
   const startedAt = performance.now();
@@ -52,6 +51,7 @@ app.use((request, response, next) => {
   }
   next();
 });
+app.use(express.json({ limit: "4mb" }));
 app.get("/ready/", async (_request, response) => {
   const checks: Record<string, "ok" | "unavailable"> = {};
   try {
@@ -69,8 +69,8 @@ app.get("/ready/", async (_request, response) => {
       const [chainId, factoryCode, feeRouterCode] = await Promise.all([
         client.getChainId(),
         client.getCode({ address: config.uniswapV3.factory }),
-        process.env[config.feeRouterEnv]
-          ? client.getCode({ address: process.env[config.feeRouterEnv] as `0x${string}` })
+        process.env[config.restrictedFeeRouterEnv]
+          ? client.getCode({ address: process.env[config.restrictedFeeRouterEnv] as `0x${string}` })
           : Promise.resolve("0x")
       ]);
       checks[`${id}Rpc`] = chainId === config.chainId ? "ok" : "unavailable";

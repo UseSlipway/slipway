@@ -100,7 +100,7 @@ test('same-origin frontend API sends nested backend routes through the Vercel pr
     target = String(url)
     return new Response(JSON.stringify({ url: 'https://res.cloudinary.com/demo/image/upload/token.png' }), { status: 201 })
   }
-  await uploadTokenImage('/api/slipway', 'data:image/png;base64,iVBORw0KGgo=')
+  await uploadTokenImage('/api/slipway', 'data:image/png;base64,iVBORw0KGgo=', 'c'.repeat(64))
   const parsed = new URL(target)
   assert.equal(parsed.pathname, '/api/slipway')
   assert.equal(parsed.searchParams.get('path'), 'v1/media/images')
@@ -226,13 +226,13 @@ test('wallet workspace session signs a server challenge and keeps the bearer tok
   globalThis.fetch = async (url, options) => {
     targets.push({ url: String(url), options })
     const body = options.body ? JSON.parse(options.body) : null
-    if (String(url).endsWith('/workspace/challenge')) return new Response(JSON.stringify({ wallet: address, nonce: 'a'.repeat(64), message: 'Sign Slipway workspace challenge' }), { status: 200 })
+    if (String(url).endsWith('/workspace/challenge')) return new Response(JSON.stringify({ wallet: address, chainId: 8453, nonce: 'a'.repeat(64), message: 'Sign Slipway workspace challenge' }), { status: 200 })
     if (String(url).endsWith('/workspace/verify')) return new Response(JSON.stringify({ wallet: address, token: 'b'.repeat(64) }), { status: 200 })
     if (options.method === 'GET') return new Response(JSON.stringify({ wallet: address, exists: true, drafts: [], watches: [] }), { status: 200 })
     return new Response(JSON.stringify({ wallet: address, saved: true }), { status: 200 })
   }
   let signedMessage = ''
-  const session = await createWorkspaceSession('https://service.example', address, async ({ message }) => { signedMessage = message; return `0x${'1'.repeat(130)}` })
+  const session = await createWorkspaceSession('https://service.example', address, 8453, async ({ message }) => { signedMessage = message; return `0x${'1'.repeat(130)}` })
   assert.equal(signedMessage, 'Sign Slipway workspace challenge')
   assert.equal(session.token, 'b'.repeat(64))
   const cloud = await getCloudWorkspace('https://service.example', session.token)

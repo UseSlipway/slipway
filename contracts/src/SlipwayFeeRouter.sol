@@ -10,15 +10,42 @@ interface IWrappedNative {
     function deposit() external payable;
 }
 
-/// @notice Executes an exact-input EVM venue call and splits disclosed input fees.
-/// @dev Venue adapters must encode the venue's output recipient as this router.
-///      The router forwards the measured output to the wallet that called it.
+interface IPonsFactoryLookup {
+    struct LaunchedToken {
+        address token;
+        address curve;
+        address deployer;
+        address creatorFeeRecipient;
+        address pairToken;
+        uint256 graduationThreshold;
+        uint24 poolFee;
+        int24 tickSpacing;
+        uint16 creatorTaxBps;
+        bool buybackEnabled;
+        uint8 phase;
+        uint256 sweptQuote;
+        uint256 sweptTokens;
+        uint256 sweptAt;
+        bool exists;
+    }
+
+    function getLaunchedToken(address token) external view returns (LaunchedToken memory);
+}
+
+/// @notice Executes swaps only through immutable, chain-configured venues.
+/// @dev Replacing the old unrestricted router is necessary because deployed routers are immutable.
+///      Venue adapters must encode this contract as the venue output recipient.
 contract SlipwayFeeRouter {
     uint16 public constant BPS_DENOMINATOR = 10_000;
     uint16 public constant MAX_PROTOCOL_FEE_BPS = 20;
     uint16 public constant MAX_INTEGRATOR_FEE_BPS = 100;
 
     address public immutable feeRecipient;
+    address public immutable uniswapV3SwapRouter;
+    address public immutable universalRouter;
+    address public immutable permit2;
+    address public immutable wrappedNative;
+    address public immutable ponsFactory;
     uint256 private entered = 1;
 
     struct ExactInParams {
@@ -33,8 +60,7 @@ contract SlipwayFeeRouter {
     }
 
     struct VenueOptions {
-        address permit2;
-        address wrappedNative;
+        bool usePermit2;
         bool unwrapInput;
         bool wrapOutput;
     }
@@ -48,6 +74,9 @@ contract SlipwayFeeRouter {
     error TokenCallFailed(address token, bytes4 selector);
     error VenueCallFailed(bytes reason);
     error InsufficientOutput(uint256 received, uint256 minimum);
+    error InvalidVenue();
+    error InvalidPonsCurve();
+    error NativeRefundFailed();
     error ReentrantCall();
 
     event TradeExecuted(
@@ -62,39 +91,83 @@ contract SlipwayFeeRouter {
         address integratorRecipient
     );
 
-    constructor(address feeRecipient_) {
+    constructor(
+        address feeRecipient_,
+        address uniswapV3SwapRouter_,
+        address universalRouter_,
+        address permit2_,
+        address wrappedNative_,
+        address ponsFactory_
+    ) {
         if (feeRecipient_ == address(0)) revert InvalidFeeRecipient();
+        if (
+            uniswapV3SwapRouter_ == address(0) || uniswapV3SwapRouter_.code.length == 0
+                || universalRouter_ == address(0) || universalRouter_.code.length == 0
+                || permit2_ == address(0) || permit2_.code.length == 0
+                || wrappedNative_ == address(0) || wrappedNative_.code.length == 0
+        ) revert InvalidAddress();
+        if (ponsFactory_ != address(0) && ponsFactory_.code.length == 0) revert InvalidAddress();
         feeRecipient = feeRecipient_;
+        uniswapV3SwapRouter = uniswapV3SwapRouter_;
+        universalRouter = universalRouter_;
+        permit2 = permit2_;
+        wrappedNative = wrappedNative_;
+        ponsFactory = ponsFactory_;
     }
 
-    /// @notice Runs a venue's exact-input call, takes configured fees in tokenIn,
-    ///         and forwards all measured tokenOut to the calling wallet.
-    /// @param venueCall Calldata from a chain-specific adapter. It must direct
-    ///        tokenOut to this router and spend no more than amountIn minus fees.
+    /// @notice Executes a Uniswap v3 exact-input call.
     function executeExactIn(ExactInParams calldata params, bytes calldata venueCall)
         external
         returns (uint256 amountOut)
     {
-        return _executeExactIn(params, venueCall, VenueOptions(address(0), address(0), false, false));
+        if (params.venue != uniswapV3SwapRouter) revert InvalidVenue();
+        return _executeExactIn(params, venueCall, VenueOptions(false, false, false));
     }
 
-    /// @notice Executes a Uniswap v4 Universal Router call through Permit2.
-    /// @dev A newly deployed router is required; the already deployed contract has no this selector.
-    function executeExactInV4(ExactInParams calldata params, address permit2, bytes calldata venueCall)
+    /// @notice Executes a Uniswap v4 Universal Router call using this router's fixed Permit2.
+    function executeExactInV4(ExactInParams calldata params, bytes calldata venueCall)
         external
         returns (uint256 amountOut)
     {
-        if (permit2 == address(0) || permit2.code.length == 0) revert InvalidAddress();
-        return _executeExactIn(params, venueCall, VenueOptions(permit2, address(0), false, false));
+        if (params.venue != universalRouter) revert InvalidVenue();
+        return _executeExactIn(params, venueCall, VenueOptions(true, false, false));
     }
 
-    function executeExactInV4Native(ExactInParams calldata params, address permit2, address wrappedNative, bool unwrapInput, bool wrapOutput, bytes calldata venueCall)
+    /// @notice Executes a native-asset Uniswap v4 call using fixed chain contracts.
+    function executeExactInV4Native(
+        ExactInParams calldata params,
+        bool unwrapInput,
+        bool wrapOutput,
+        bytes calldata venueCall
+    ) external returns (uint256 amountOut) {
+        if (params.venue != universalRouter) revert InvalidVenue();
+        if ((unwrapInput && params.tokenIn != wrappedNative) || (wrapOutput && params.tokenOut != wrappedNative)) {
+            revert InvalidAddress();
+        }
+        return _executeExactIn(params, venueCall, VenueOptions(true, unwrapInput, wrapOutput));
+    }
+
+    /// @notice Executes a Pons bonding-curve buy for the exact token registered by its factory.
+    function executeExactInPonsNative(ExactInParams calldata params, bytes calldata venueCall)
         external
         returns (uint256 amountOut)
     {
-        if (permit2 == address(0) || permit2.code.length == 0 || wrappedNative == address(0) || wrappedNative.code.length == 0) revert InvalidAddress();
-        if ((unwrapInput && params.tokenIn != wrappedNative) || (wrapOutput && params.tokenOut != wrappedNative)) revert InvalidAddress();
-        return _executeExactIn(params, venueCall, VenueOptions(permit2, wrappedNative, unwrapInput, wrapOutput));
+        if (
+            ponsFactory == address(0) || params.tokenIn != wrappedNative || params.tokenOut == address(0)
+                || params.venue == address(0)
+        ) revert InvalidPonsCurve();
+        IPonsFactoryLookup.LaunchedToken memory launched;
+        try IPonsFactoryLookup(ponsFactory).getLaunchedToken(params.tokenOut) returns (
+            IPonsFactoryLookup.LaunchedToken memory result
+        ) {
+            launched = result;
+        } catch {
+            revert InvalidPonsCurve();
+        }
+        if (!launched.exists || launched.token != params.tokenOut || launched.curve != params.venue || launched.phase != 0) {
+            revert InvalidPonsCurve();
+        }
+        return _executeExactIn(params, venueCall, VenueOptions(false, true, false));
     }
 
     function _executeExactIn(ExactInParams calldata params, bytes calldata venueCall, VenueOptions memory options)
@@ -106,10 +179,8 @@ contract SlipwayFeeRouter {
 
         if (
             params.tokenIn == address(0) || params.tokenOut == address(0) || params.venue == address(0)
-                || params.venue == address(this) || params.tokenIn == params.tokenOut || params.venue.code.length == 0
-        ) {
-            revert InvalidAddress();
-        }
+                || params.venue == address(this) || params.venue.code.length == 0 || params.tokenIn == params.tokenOut
+        ) revert InvalidAddress();
         if (params.amountIn == 0) revert InvalidAmount();
         if (params.protocolFeeBps > MAX_PROTOCOL_FEE_BPS || params.integratorFeeBps > MAX_INTEGRATOR_FEE_BPS) {
             revert InvalidFee();
@@ -117,11 +188,10 @@ contract SlipwayFeeRouter {
         if (
             params.integratorFeeBps > 0
                 && (params.integratorRecipient == address(0) || params.integratorRecipient == address(this))
-        ) {
-            revert InvalidIntegratorRecipient();
-        }
+        ) revert InvalidIntegratorRecipient();
 
         uint256 inputBefore = _balanceOf(params.tokenIn, address(this));
+        uint256 nativeBefore = address(this).balance;
         uint256 protocolFee = params.amountIn * params.protocolFeeBps / BPS_DENOMINATOR;
         uint256 integratorFee = params.amountIn * params.integratorFeeBps / BPS_DENOMINATOR;
         uint256 venueAmount = params.amountIn - protocolFee - integratorFee;
@@ -137,6 +207,11 @@ contract SlipwayFeeRouter {
         if (amountOut < params.amountOutMin) revert InsufficientOutput(amountOut, params.amountOutMin);
         _safeTransfer(params.tokenOut, msg.sender, amountOut);
 
+        uint256 nativeRefund = address(this).balance - nativeBefore;
+        if (nativeRefund > 0) {
+            (bool refunded,) = msg.sender.call{value: nativeRefund}("");
+            if (!refunded) revert NativeRefundFailed();
+        }
         _emitTrade(params, amountOut, protocolFee, integratorFee);
         entered = 1;
     }
@@ -163,28 +238,29 @@ contract SlipwayFeeRouter {
     {
         uint256 outputBefore = _balanceOf(params.tokenOut, address(this));
         uint256 nativeBefore = address(this).balance;
-        if (options.permit2 == address(0)) {
+        if (options.unwrapInput) {
+            IWrappedNative(wrappedNative).withdraw(venueAmount);
+        } else if (options.usePermit2) {
+            _grantPermit2(params.tokenIn, params.venue, venueAmount);
+        } else if (!options.usePermit2) {
             _forceApprove(params.tokenIn, params.venue, venueAmount);
-        } else if (!options.unwrapInput) {
-            _grantPermit2(params.tokenIn, options.permit2, params.venue, venueAmount);
         }
-        if (options.unwrapInput) IWrappedNative(options.wrappedNative).withdraw(venueAmount);
         (bool success, bytes memory result) = params.venue.call{value: options.unwrapInput ? venueAmount : 0}(venueCall);
-        if (options.permit2 == address(0)) {
+        if (!options.unwrapInput && options.usePermit2) {
+            _revokePermit2(params.tokenIn, params.venue);
+            _forceApprove(params.tokenIn, permit2, 0);
+        } else if (!options.unwrapInput && !options.usePermit2) {
             _forceApprove(params.tokenIn, params.venue, 0);
-        } else if (!options.unwrapInput) {
-            _revokePermit2(params.tokenIn, options.permit2, params.venue);
-            _forceApprove(params.tokenIn, options.permit2, 0);
         }
         if (!success) revert VenueCallFailed(result);
         if (options.wrapOutput) {
-            uint256 nativeOutput = address(this).balance - nativeBefore + (options.unwrapInput ? venueAmount : 0);
-            if (nativeOutput > 0) IWrappedNative(options.wrappedNative).deposit{value: nativeOutput}();
+            uint256 nativeOutput = address(this).balance - nativeBefore;
+            if (nativeOutput > 0) IWrappedNative(wrappedNative).deposit{value: nativeOutput}();
         }
         amountOut = _balanceOf(params.tokenOut, address(this)) - outputBefore;
     }
 
-    function _grantPermit2(address token, address permit2, address spender, uint256 amount) private {
+    function _grantPermit2(address token, address spender, uint256 amount) private {
         if (amount > type(uint160).max) revert InvalidAmount();
         _forceApprove(token, permit2, amount);
         (bool success, bytes memory result) = permit2.call(
@@ -193,7 +269,7 @@ contract SlipwayFeeRouter {
         if (!success || result.length != 0) revert TokenCallFailed(permit2, IPermit2AllowanceTransfer.approve.selector);
     }
 
-    function _revokePermit2(address token, address permit2, address spender) private {
+    function _revokePermit2(address token, address spender) private {
         (bool success, bytes memory result) = permit2.call(
             abi.encodeCall(IPermit2AllowanceTransfer.approve, (token, spender, uint160(0), uint48(0)))
         );
@@ -202,27 +278,19 @@ contract SlipwayFeeRouter {
 
     function _safeTransferFrom(address token, address from, address to, uint256 amount) private {
         (bool success, bytes memory result) = token.call(abi.encodeWithSelector(0x23b872dd, from, to, amount));
-        if (!success || (result.length != 0 && !abi.decode(result, (bool)))) {
-            revert TokenCallFailed(token, 0x23b872dd);
-        }
+        if (!success || (result.length != 0 && !abi.decode(result, (bool)))) revert TokenCallFailed(token, 0x23b872dd);
     }
 
     function _safeTransfer(address token, address to, uint256 amount) private {
         (bool success, bytes memory result) = token.call(abi.encodeWithSelector(0xa9059cbb, to, amount));
-        if (!success || (result.length != 0 && !abi.decode(result, (bool)))) {
-            revert TokenCallFailed(token, 0xa9059cbb);
-        }
+        if (!success || (result.length != 0 && !abi.decode(result, (bool)))) revert TokenCallFailed(token, 0xa9059cbb);
     }
 
     function _forceApprove(address token, address spender, uint256 amount) private {
         (bool success, bytes memory result) = token.call(abi.encodeWithSelector(0x095ea7b3, spender, 0));
-        if (!success || (result.length != 0 && !abi.decode(result, (bool)))) {
-            revert TokenCallFailed(token, 0x095ea7b3);
-        }
+        if (!success || (result.length != 0 && !abi.decode(result, (bool)))) revert TokenCallFailed(token, 0x095ea7b3);
         (success, result) = token.call(abi.encodeWithSelector(0x095ea7b3, spender, amount));
-        if (!success || (result.length != 0 && !abi.decode(result, (bool)))) {
-            revert TokenCallFailed(token, 0x095ea7b3);
-        }
+        if (!success || (result.length != 0 && !abi.decode(result, (bool)))) revert TokenCallFailed(token, 0x095ea7b3);
     }
 
     function _balanceOf(address token, address account) private view returns (uint256) {

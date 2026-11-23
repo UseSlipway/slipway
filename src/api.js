@@ -137,16 +137,17 @@ export function evmBuildMatches(build, { chain, wallet }) {
       && typeof payload.from === 'string' && payload.from.toLowerCase() === wallet.toLowerCase()))
 }
 
-export async function uploadTokenImage(endpoint, image) {
+export async function uploadTokenImage(endpoint, image, token) {
   if (typeof image !== 'string' || !/^data:image\/(?:png|jpeg|gif|webp);base64,[A-Za-z0-9+/]+={0,2}$/.test(image)
     || image.length > 2_800_000) {
     throw new Error('Choose a PNG, JPG, GIF or WebP image up to 2 MB.')
   }
+  if (typeof token !== 'string' || !/^[a-f0-9]{64}$/i.test(token)) throw new Error('Connect a wallet to upload a token image.')
   const root = apiRoot(endpoint)
   const response = await fetch(apiUrl(root, 'v1/media/images'), {
     method: 'POST',
     credentials: 'omit',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
     body: JSON.stringify({ image }),
     signal: AbortSignal.timeout(60_000),
   }).catch((error) => {
@@ -307,10 +308,10 @@ export async function resolveToken(endpoint, chain, address) {
 }
 
 
-async function workspaceRequest(endpoint, method, token, body) {
+async function workspaceRequest(endpoint, method, token, body, action = '') {
   if (typeof token !== 'string' || !/^[a-f0-9]{64}$/i.test(token)) throw new Error('Sign with your wallet to access its workspace.')
   const root = apiRoot(endpoint)
-  const response = await fetch(apiUrl(root, 'v1/workspace'), {
+  const response = await fetch(apiUrl(root, `v1/workspace${action}`), {
     method,
     credentials: 'omit',
     cache: 'no-store',
@@ -323,10 +324,10 @@ async function workspaceRequest(endpoint, method, token, body) {
   return readJson(response)
 }
 
-export async function createWorkspaceSession(endpoint, wallet, signMessage) {
-  if (!/^0x[a-fA-F0-9]{40}$/.test(wallet) || typeof signMessage !== 'function') throw new Error('Connect an EVM wallet to sync your workspace.')
-  const challenge = await request(endpoint, 'workspace/challenge', { wallet })
-  if (challenge.wallet?.toLowerCase() !== wallet.toLowerCase() || typeof challenge.message !== 'string' || typeof challenge.nonce !== 'string') {
+export async function createWorkspaceSession(endpoint, wallet, chainId, signMessage) {
+  if (!/^0x[a-fA-F0-9]{40}$/.test(wallet) || ![4663, 8453].includes(chainId) || typeof signMessage !== 'function') throw new Error('Connect a wallet on Base or Robinhood Chain to sync your workspace.')
+  const challenge = await request(endpoint, 'workspace/challenge', { wallet, chainId })
+  if (challenge.wallet?.toLowerCase() !== wallet.toLowerCase() || challenge.chainId !== chainId || typeof challenge.message !== 'string' || typeof challenge.nonce !== 'string') {
     throw new Error('The service returned an invalid wallet challenge.')
   }
   const signature = await signMessage({ message: challenge.message })
@@ -343,4 +344,8 @@ export async function getCloudWorkspace(endpoint, token) {
 
 export async function putCloudWorkspace(endpoint, token, { drafts, watches }) {
   return workspaceRequest(endpoint, 'PUT', token, { drafts, watches })
+}
+
+export async function revokeWorkspaceSession(endpoint, token) {
+  return workspaceRequest(endpoint, 'POST', token, undefined, '/revoke')
 }

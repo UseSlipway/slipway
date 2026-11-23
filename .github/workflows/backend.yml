@@ -4,6 +4,9 @@ on:
   push:
   pull_request:
 
+permissions:
+  contents: read
+
 jobs:
   check:
     if: github.repository == 'UseSlipway/slipway'
@@ -17,6 +20,7 @@ jobs:
         with:
           bun-version: "1.4.2"
       - run: bun install --frozen-lockfile --ignore-scripts
+      - run: bun test
       - run: bun run check
       - name: Build production image
         run: docker build --build-arg APP_COMMIT_SHA=${{ github.sha }} --tag slipway-backend:ci .

@@ -4,6 +4,7 @@ import { Clanker } from "clanker-sdk/v4";
 import { encodeFunctionData, formatEther, getAddress, isAddress, parseAbi, zeroAddress } from "viem";
 import { z } from "zod";
 import { getChainConfig, getPublicClient } from "../chains/config";
+import { clientRateSubject, consumeDatabaseRateLimit } from "../middleware/rateLimit";
 import { db } from "../db/index";
 
 export const launchRouter = Router();
@@ -39,6 +40,9 @@ launchRouter.post("/launch/quote", async (request, response) => {
   if (input.devBuy && input.devBuy !== "0") { response.status(400).json({ error: "Creator buy is not supported for this launch venue" }); return; }
   const config = getChainConfig(chainFor(input.chain))!;
   try {
+    if (await consumeDatabaseRateLimit("launch-quote", clientRateSubject(request), 12, 60)) {
+      response.setHeader("Retry-After", "60").status(429).json({ error: "Too many launch quotes. Wait briefly and try again." }); return;
+    }
     const client = getPublicClient(config);
     if (await client.getChainId() !== config.chainId) { response.status(503).json({ error: "Configured RPC chain ID mismatch" }); return; }
     let stored: Record<string, unknown>;

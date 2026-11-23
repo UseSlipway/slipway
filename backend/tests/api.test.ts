@@ -65,6 +65,29 @@ describe("backend API surface", () => {
     expect(response.status).toBe(400);
   });
 
+  test("keeps valid trade quotes and builds paused until restricted routers are configured", async () => {
+    const previous = process.env.SLIPWAY_TRADING_ENABLED;
+    process.env.SLIPWAY_TRADING_ENABLED = "false";
+    try {
+      const quote = await apiFetch(`${origin}/v1/quote`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ chain: "base", token: "0x000000000000000000000000000000000000dead", side: "buy", amount: "1", slippageBps: 50 })
+      });
+      const build = await apiFetch(`${origin}/v1/build/trade`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ quoteId: "00000000-0000-4000-8000-000000000001", wallet: "0x000000000000000000000000000000000000dead", accountKind: "eoa" })
+      });
+      expect(quote.status).toBe(503);
+      expect(build.status).toBe(503);
+      expect((await quote.json() as { error: string }).error).toContain("paused");
+    } finally {
+      if (previous === undefined) delete process.env.SLIPWAY_TRADING_ENABLED;
+      else process.env.SLIPWAY_TRADING_ENABLED = previous;
+    }
+  });
+
   test("rejects unsupported quote assets before RPC access", async () => {
     const response = await apiFetch(`${origin}/v1/quote`, {
       method: "POST",

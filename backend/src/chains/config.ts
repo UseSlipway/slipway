@@ -22,8 +22,7 @@ export interface ChainConfig {
     stateView?: Address;
     universalRouter: Address;
   };
-  feeRouterEnv: "SLIPWAY_RHC_FEE_ROUTER_ADDRESS" | "SLIPWAY_BASE_FEE_ROUTER_ADDRESS";
-  feeRouterV2Env: "SLIPWAY_RHC_FEE_ROUTER_V2_ADDRESS" | "SLIPWAY_BASE_FEE_ROUTER_V2_ADDRESS";
+  restrictedFeeRouterEnv: "SLIPWAY_RHC_RESTRICTED_FEE_ROUTER_ADDRESS" | "SLIPWAY_BASE_RESTRICTED_FEE_ROUTER_ADDRESS";
 }
 
 const permit2 = "0x000000000022d473030f116ddee9f6b43ac78ba3" as Address;
@@ -50,8 +49,7 @@ const configs: Record<SlipwayChainId, ChainConfig> = {
       quoter: "0x8dc178efb8111bb0973dd9d722ebeff267c98f94",
       universalRouter: "0x8876789976decbfcbbbe364623c63652db8c0904"
     },
-    feeRouterEnv: "SLIPWAY_RHC_FEE_ROUTER_ADDRESS",
-    feeRouterV2Env: "SLIPWAY_RHC_FEE_ROUTER_V2_ADDRESS"
+    restrictedFeeRouterEnv: "SLIPWAY_RHC_RESTRICTED_FEE_ROUTER_ADDRESS"
   },
   base: {
     id: "base",
@@ -76,8 +74,7 @@ const configs: Record<SlipwayChainId, ChainConfig> = {
       stateView: "0xa3c0c9b65bad0b08107aa264b0f3db444b867a71",
       universalRouter: "0x6ff5693b99212da76ad316178a184ab56d299b43"
     },
-    feeRouterEnv: "SLIPWAY_BASE_FEE_ROUTER_ADDRESS",
-    feeRouterV2Env: "SLIPWAY_BASE_FEE_ROUTER_V2_ADDRESS"
+    restrictedFeeRouterEnv: "SLIPWAY_BASE_RESTRICTED_FEE_ROUTER_ADDRESS"
   }
 };
 
@@ -96,8 +93,7 @@ export function publicChainConfig(config: ChainConfig) {
     protocols: {
       uniswapV3: config.uniswapV3,
       uniswapV4: config.uniswapV4,
-      slipwayFeeRouter: process.env[config.feeRouterEnv] || undefined,
-      slipwayFeeRouterV2: process.env[config.feeRouterV2Env] || undefined
+      slipwayFeeRouter: process.env[config.restrictedFeeRouterEnv] || undefined
     }
   };
 }

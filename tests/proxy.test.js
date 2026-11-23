@@ -38,11 +38,12 @@ test('same-origin proxy forwards only allowed paths to the server-configured bac
     return new Response(JSON.stringify({ status: 'ok' }), { status: 200, headers: { 'cache-control': 'no-store' } })
   }
   const res = mockResponse()
-  await handler({ url: '/api/slipway?path=v1%2Fquote', method: 'POST', headers: { 'content-type': 'application/json', authorization: 'Bearer test' }, body: { chain: 'base' } }, res)
+  await handler({ url: '/api/slipway?path=v1%2Fquote', method: 'POST', headers: { 'content-type': 'application/json', authorization: 'Bearer test', 'x-real-ip': '198.51.100.11', 'x-slipway-client-ip': 'spoofed' }, body: { chain: 'base' } }, res)
   assert.equal(target, 'https://backend.example/v1/quote')
   assert.equal(forwarded.method, 'POST')
   assert.equal(forwarded.headers.get('authorization'), 'Bearer test')
   assert.equal(forwarded.headers.get('x-api-key'), testApiKey)
+  assert.equal(forwarded.headers.get('x-slipway-client-ip'), '198.51.100.11')
   assert.deepEqual(JSON.parse(forwarded.body), { chain: 'base' })
   assert.equal(res.statusCode, 200)
   assert.equal(res.headers['cache-control'], 'no-store')

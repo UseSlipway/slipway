@@ -3,8 +3,12 @@ import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { decodeFunctionResult, encodeAbiParameters, encodeFunctionData, formatUnits, getAddress, isAddress, parseAbi, parseUnits, type Address } from "viem";
 import { getChainConfig, getPublicClient, UNISWAP_V3_FEES, v3FactoryAbi, v3PoolAbi, erc20ReadAbi } from "../chains/config";
+import { clientRateSubject, consumeDatabaseRateLimit } from "../middleware/rateLimit";
 
 export const tradeRouter = Router();
+// Trading remains opt-in until the replacement fee routers are deployed and configured.
+// The deployed routers have an unrestricted venue call and must not receive new approvals.
+function tradingEnabled() { return process.env.SLIPWAY_TRADING_ENABLED === "true"; }
 const quoteSchema = z.object({ chain: z.enum(["rhc", "base"]), token: z.string().refine(isAddress), side: z.enum(["buy", "sell"]), amount: z.union([z.string(), z.number()]), amountType: z.literal("in").optional(), quoteAsset: z.string().optional(), slippageBps: z.number().int().min(0).max(5000) }).strict();
 const amountSchema = z.string().regex(/^(?:\d+)(?:\.\d+)?$/).max(78);
 const PROTOCOL_FEE_BPS = 20;
@@ -15,8 +19,9 @@ export function calculateMinimumOutput(amountOut: bigint, slippageBps: number): 
 const quoteAbi = [{ type: "function", name: "quoteExactInputSingle", stateMutability: "nonpayable", inputs: [{ name: "params", type: "tuple", components: [{ name: "tokenIn", type: "address" }, { name: "tokenOut", type: "address" }, { name: "amountIn", type: "uint256" }, { name: "fee", type: "uint24" }, { name: "sqrtPriceLimitX96", type: "uint160" }] }], outputs: [{ name: "amountOut", type: "uint256" }, { name: "sqrtPriceX96After", type: "uint160" }, { name: "initializedTicksCrossed", type: "uint32" }, { name: "gasEstimate", type: "uint256" }] }] as const;
 const swapRouterAbi = [{ type: "function", name: "exactInputSingle", stateMutability: "payable", inputs: [{ name: "params", type: "tuple", components: [{ name: "tokenIn", type: "address" }, { name: "tokenOut", type: "address" }, { name: "fee", type: "uint24" }, { name: "recipient", type: "address" }, { name: "deadline", type: "uint256" }, { name: "amountIn", type: "uint256" }, { name: "amountOutMinimum", type: "uint256" }, { name: "sqrtPriceLimitX96", type: "uint160" }] }], outputs: [{ name: "amountOut", type: "uint256" }] }] as const;
 const feeRouterAbi = [{ type: "function", name: "executeExactIn", stateMutability: "nonpayable", inputs: [{ name: "params", type: "tuple", components: [{ name: "tokenIn", type: "address" }, { name: "tokenOut", type: "address" }, { name: "venue", type: "address" }, { name: "amountIn", type: "uint256" }, { name: "amountOutMin", type: "uint256" }, { name: "protocolFeeBps", type: "uint16" }, { name: "integratorFeeBps", type: "uint16" }, { name: "integratorRecipient", type: "address" }] }, { name: "venueCall", type: "bytes" }], outputs: [{ name: "amountOut", type: "uint256" }] }] as const;
-const feeRouterV2Abi = [{ type: "function", name: "executeExactInV4", stateMutability: "nonpayable", inputs: [{ name: "params", type: "tuple", components: [{ name: "tokenIn", type: "address" }, { name: "tokenOut", type: "address" }, { name: "venue", type: "address" }, { name: "amountIn", type: "uint256" }, { name: "amountOutMin", type: "uint256" }, { name: "protocolFeeBps", type: "uint16" }, { name: "integratorFeeBps", type: "uint16" }, { name: "integratorRecipient", type: "address" }] }, { name: "permit2", type: "address" }, { name: "venueCall", type: "bytes" }], outputs: [{ name: "amountOut", type: "uint256" }] }] as const;
-const feeRouterV2NativeAbi = [{ type: "function", name: "executeExactInV4Native", stateMutability: "nonpayable", inputs: [{ name: "params", type: "tuple", components: [{ name: "tokenIn", type: "address" }, { name: "tokenOut", type: "address" }, { name: "venue", type: "address" }, { name: "amountIn", type: "uint256" }, { name: "amountOutMin", type: "uint256" }, { name: "protocolFeeBps", type: "uint16" }, { name: "integratorFeeBps", type: "uint16" }, { name: "integratorRecipient", type: "address" }] }, { name: "permit2", type: "address" }, { name: "wrappedNative", type: "address" }, { name: "unwrapInput", type: "bool" }, { name: "wrapOutput", type: "bool" }, { name: "venueCall", type: "bytes" }], outputs: [{ name: "amountOut", type: "uint256" }] }] as const;
+const feeRouterV2Abi = [{ type: "function", name: "executeExactInV4", stateMutability: "nonpayable", inputs: [{ name: "params", type: "tuple", components: [{ name: "tokenIn", type: "address" }, { name: "tokenOut", type: "address" }, { name: "venue", type: "address" }, { name: "amountIn", type: "uint256" }, { name: "amountOutMin", type: "uint256" }, { name: "protocolFeeBps", type: "uint16" }, { name: "integratorFeeBps", type: "uint16" }, { name: "integratorRecipient", type: "address" }] }, { name: "venueCall", type: "bytes" }], outputs: [{ name: "amountOut", type: "uint256" }] }] as const;
+const feeRouterV2NativeAbi = [{ type: "function", name: "executeExactInV4Native", stateMutability: "nonpayable", inputs: [{ name: "params", type: "tuple", components: [{ name: "tokenIn", type: "address" }, { name: "tokenOut", type: "address" }, { name: "venue", type: "address" }, { name: "amountIn", type: "uint256" }, { name: "amountOutMin", type: "uint256" }, { name: "protocolFeeBps", type: "uint16" }, { name: "integratorFeeBps", type: "uint16" }, { name: "integratorRecipient", type: "address" }] }, { name: "unwrapInput", type: "bool" }, { name: "wrapOutput", type: "bool" }, { name: "venueCall", type: "bytes" }], outputs: [{ name: "amountOut", type: "uint256" }] }] as const;
+const feeRouterPonsNativeAbi = [{ type: "function", name: "executeExactInPonsNative", stateMutability: "nonpayable", inputs: [{ name: "params", type: "tuple", components: [{ name: "tokenIn", type: "address" }, { name: "tokenOut", type: "address" }, { name: "venue", type: "address" }, { name: "amountIn", type: "uint256" }, { name: "amountOutMin", type: "uint256" }, { name: "protocolFeeBps", type: "uint16" }, { name: "integratorFeeBps", type: "uint16" }, { name: "integratorRecipient", type: "address" }] }, { name: "venueCall", type: "bytes" }], outputs: [{ name: "amountOut", type: "uint256" }] }] as const;
 const wethDepositAbi = [{ type: "function", name: "deposit", stateMutability: "payable", inputs: [], outputs: [] }] as const;
 const v4QuoteAbi = [{ type: "function", name: "quoteExactInputSingle", stateMutability: "nonpayable", inputs: [{ name: "params", type: "tuple", components: [{ name: "poolKey", type: "tuple", components: [{ name: "currency0", type: "address" }, { name: "currency1", type: "address" }, { name: "fee", type: "uint24" }, { name: "tickSpacing", type: "int24" }, { name: "hooks", type: "address" }] }, { name: "zeroForOne", type: "bool" }, { name: "exactAmount", type: "uint128" }, { name: "hookData", type: "bytes" }] }], outputs: [{ name: "amountOut", type: "uint256" }, { name: "sqrtPriceX96After", type: "uint160" }, { name: "initializedTicksCrossed", type: "uint32" }, { name: "gasEstimate", type: "uint256" }] }] as const;
 const universalRouterV4Abi = [{ type: "function", name: "execute", stateMutability: "payable", inputs: [{ name: "commands", type: "bytes" }, { name: "inputs", type: "bytes[]" }, { name: "deadline", type: "uint256" }] }] as const;
@@ -84,8 +89,12 @@ tradeRouter.post("/quote", async (request, response) => {
   if (requestedQuoteAsset && !exactAsset) { response.status(400).json({ error: "Unsupported quote asset for this chain" }); return; }
   const quoteAssets = config.quoteAssets.filter((asset) => asset.address.toLowerCase() !== token.toLowerCase() && (!exactAsset || asset.address === exactAsset.address));
   if (!quoteAssets.length) { response.status(400).json({ error: "Token cannot be traded against the selected quote asset" }); return; }
+  if (!tradingEnabled()) { response.status(503).json({ error: "Trading is temporarily paused while the execution contracts are being upgraded" }); return; }
 
   try {
+    if (await consumeDatabaseRateLimit("trade-quote", clientRateSubject(request), 30, 60)) {
+      response.setHeader("Retry-After", "60").status(429).json({ error: "Too many trade quotes. Wait briefly and try again." }); return;
+    }
     const client = getPublicClient(config);
     if (await client.getChainId() !== config.chainId) { response.status(503).json({ error: "Configured RPC chain ID mismatch" }); return; }
     const [tokenCode, decimals, symbol, name] = await Promise.all([
@@ -192,7 +201,7 @@ tradeRouter.post("/quote", async (request, response) => {
           try {
             const launch = await client.readContract({ address: ponsFactory, abi: ponsLaunchLookupAbi, functionName: "getLaunchedToken", args: [token] });
             if (!launch.exists || launch.phase !== 0 || launch.pairToken !== ZERO_ADDRESS || launch.curve === ZERO_ADDRESS) return null;
-            const feeRouter = process.env[config.feeRouterV2Env];
+            const feeRouter = process.env[config.restrictedFeeRouterEnv];
             if (!feeRouter || !isAddressValue(feeRouter)) return null;
             const curve = launch.curve;
             const [reserves, sellableTokens, feeBps, creatorTaxBps, rawSnipeBps] = await Promise.all([
@@ -264,6 +273,7 @@ tradeRouter.post("/quote", async (request, response) => {
 tradeRouter.post("/build/trade", async (request, response) => {
   const parsed = z.object({ quoteId: z.string().uuid(), wallet: z.string().refine(isAddress), accountKind: z.literal("eoa") }).strict().safeParse(request.body);
   if (!parsed.success) { response.status(400).json({ error: "Invalid unsigned trade build request" }); return; }
+  if (!tradingEnabled()) { response.status(503).json({ error: "Trading is temporarily paused while the execution contracts are being upgraded" }); return; }
   try {
     const { db } = await import("../db/index");
     const stored = await db.query<{ quote: Record<string, unknown>; expires_at: Date }>("SELECT quote, expires_at FROM trade_quotes WHERE id = $1", [parsed.data.quoteId]);
@@ -276,9 +286,8 @@ tradeRouter.post("/build/trade", async (request, response) => {
     if (!config) { response.status(400).json({ error: "Quote chain is unsupported" }); return; }
     const isPonsCurve = quote.venue === "pons-curve";
     const isV4 = quote.venue === "uniswap-v4";
-    const usesFeeRouterV2 = isV4 || isPonsCurve;
-    const feeRouter = process.env[usesFeeRouterV2 ? config.feeRouterV2Env : config.feeRouterEnv];
-    if (!feeRouter || !isAddressValue(feeRouter)) { response.status(503).json({ error: usesFeeRouterV2 ? "Fee router v2 is not configured for this chain" : "Fee router is not configured for this chain" }); return; }
+    const feeRouter = process.env[config.restrictedFeeRouterEnv];
+    if (!feeRouter || !isAddressValue(feeRouter)) { response.status(503).json({ error: "Restricted fee router is not configured for this chain" }); return; }
 
     const tokenIn = getAddress(String(quote.inputToken));
     const tokenOut = getAddress(String(quote.outputToken));
@@ -292,7 +301,7 @@ tradeRouter.post("/build/trade", async (request, response) => {
         tokenIn, tokenOut, venue: getAddress(String(quote.pool)), amountIn, amountOutMin,
         protocolFeeBps: PROTOCOL_FEE_BPS, integratorFeeBps: 0, integratorRecipient: ZERO_ADDRESS
       };
-      feeCall = encodeFunctionData({ abi: feeRouterV2NativeAbi, functionName: "executeExactInV4Native", args: [exactInParams, config.uniswapV3.permit2, config.wrappedNative, true, false, venueCall] });
+      feeCall = encodeFunctionData({ abi: feeRouterPonsNativeAbi, functionName: "executeExactInPonsNative", args: [exactInParams, venueCall] });
     } else if (isV4) {
       const poolKey = quote.poolKey as { currency0: Address; currency1: Address; fee: number; tickSpacing: number; hooks: Address };
       const venueAmount = BigInt(String(quote.venueAmountInRaw));
@@ -312,8 +321,8 @@ tradeRouter.post("/build/trade", async (request, response) => {
         protocolFeeBps: PROTOCOL_FEE_BPS, integratorFeeBps: 0, integratorRecipient: ZERO_ADDRESS
       };
       feeCall = quote.nativeInput || quote.nativeOutput
-        ? encodeFunctionData({ abi: feeRouterV2NativeAbi, functionName: "executeExactInV4Native", args: [exactInParams, config.uniswapV3.permit2, config.wrappedNative, Boolean(quote.nativeInput), Boolean(quote.nativeOutput), venueCall] })
-        : encodeFunctionData({ abi: feeRouterV2Abi, functionName: "executeExactInV4", args: [exactInParams, config.uniswapV3.permit2, venueCall] });
+        ? encodeFunctionData({ abi: feeRouterV2NativeAbi, functionName: "executeExactInV4Native", args: [exactInParams, Boolean(quote.nativeInput), Boolean(quote.nativeOutput), venueCall] })
+        : encodeFunctionData({ abi: feeRouterV2Abi, functionName: "executeExactInV4", args: [exactInParams, venueCall] });
     } else {
       const venueCall = encodeFunctionData({ abi: swapRouterAbi, functionName: "exactInputSingle", args: [{
         tokenIn, tokenOut, fee: Number(quote.poolFee), recipient: normalizeAddress(feeRouter),
