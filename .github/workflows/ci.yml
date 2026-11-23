@@ -23,3 +23,7 @@ jobs:
           version: v1.8.5
       - run: forge build
       - run: forge test
+      - name: Enforce fee router line coverage
+        run: |
+          forge coverage --report lcov --report-file /tmp/contracts-coverage.lcov
+          python3 ../scripts/check_contract_coverage.py /tmp/contracts-coverage.lcov --source src/SlipwayFeeRouter.sol --minimum 95

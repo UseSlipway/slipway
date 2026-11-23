@@ -1,0 +1,37 @@
+name: Restricted router deployment verification
+
+on:
+  push:
+    paths:
+      - "contracts/deployments/**"
+      - "contracts/foundry.toml"
+      - "contracts/script/verify_deployments.py"
+      - "contracts/src/**"
+      - ".github/workflows/deployment-verification.yml"
+  schedule:
+    - cron: "41 6 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    if: github.repository == 'UseSlipway/slipway'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    defaults:
+      run:
+        working-directory: contracts
+    env:
+      BASE_RPC_URL: ${{ secrets.BASE_RPC_URL || 'https://mainnet.base.org' }}
+      RHC_RPC_URL: ${{ secrets.RHC_RPC_URL || 'https://rpc.mainnet.chain.robinhood.com' }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: foundry-rs/foundry-toolchain@908c540300062bd5a7e473851cdb4282204cee09
+        with:
+          version: v1.8.5
+      - run: forge build
+      - name: Check live deployments against the checked-in build
+        run: python3 script/verify_deployments.py

@@ -26,7 +26,7 @@
     "blockNumber": 61159239,
     "verifiedOnChain": true,
     "runtimeBytecodeHash": "sha256:9c2728dfaecb2edf71d6f7dd66b773a7a24a623a62304b64bdda4f076322d8ba",
-    "checkedAtBlock": 61177047,
+    "checkedAtBlock": 61341268,
     "verifiedConfiguration": {
       "feeRecipient": "0x7ad8085132ee3c945e06f618d64eb374664b5054",
       "uniswapV3SwapRouter": "0x2626664c2603336e57b271c5c0b26f421741e481",
@@ -45,6 +45,22 @@
     "explorerTransactionUrl": "https://basescan.org/tx/0x292fc8ccf8da4391ac7d3fb17c1017bae6376385ae8a6caa3bceaeb48123a772",
     "deployedSourceCommit": "ab11e73a7315c3e7be43e799a871bea2b56fe42e",
     "deployedBuildHash": "sha256:36f735ddfa6057a29f4739899d80b474ef4249f3e4e76d8a57e5c0cbefa585ec",
-    "verificationArtifactHash": "sha256:f6105df0a5f83868f6cd65bd2acde2fa98c33d0a9f1146967a4737ba3aec791a"
+    "verificationArtifactHash": "sha256:f6105df0a5f83868f6cd65bd2acde2fa98c33d0a9f1146967a4737ba3aec791a",
+    "publicBuildOfRecordCommit": "4474c31a85ff06cb1d2437c44603900e42259151",
+    "publicBuildOfRecordTag": "slipway-restricted-router-build",
+    "onChainVerificationMethod": "Receipt, deployed runtime with Solidity metadata removed and immutable slots masked, and all immutable getters verified against the recorded deployment configuration.",
+    "sourceVerification": {
+      "provider": "Sourcify",
+      "match": "exact_match",
+      "creationMatch": "exact_match",
+      "runtimeMatch": "exact_match",
+      "verificationId": "4f2673f4-3cae-4a1d-92ea-dfb8acc44ff0",
+      "url": "https://repo.sourcify.dev/8453/0xDf5c82a4e0d905f467dd93c9ff72496F31E9D074",
+      "externalExplorerStatus": {
+        "BaseScan": "Sourcify forwarding reported the Etherscan daily submission limit was reached; direct explorer verification remains pending.",
+        "Base Blockscout": "Sourcify submitted verification; its status endpoint was inaccessible from the verification network."
+      }
+    },
+    "onChainRuntimeVerified": true
   }
 }

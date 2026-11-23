@@ -128,8 +128,13 @@ def main() -> int:
         deployment = record.get("restrictedFeeRouter")
         if not deployment:
             raise RuntimeError(f"{record_path} has no restrictedFeeRouter record")
-        if not deployment.get("deployedSourceCommit") or not deployment.get("deployedBuildHash"):
-            raise RuntimeError(f"{record_path} must record the source commit and build hash used for deployment")
+        if (
+            not deployment.get("deployedSourceCommit")
+            or not deployment.get("deployedBuildHash")
+            or not deployment.get("publicBuildOfRecordCommit")
+            or not deployment.get("publicBuildOfRecordTag")
+        ):
+            raise RuntimeError(f"{record_path} must record the deployed build and its public source reference")
         url = os.environ.get(config["rpc"], "").strip()
         if not url:
             raise RuntimeError(f"{config['rpc']} is required (or add it to contracts/.env)")
@@ -169,6 +174,7 @@ def main() -> int:
         deployment["verificationArtifactHash"] = build_hash
         deployment.pop("buildHash", None)
         deployment["runtimeBytecodeHash"] = "sha256:" + hashlib.sha256(bytes.fromhex(actual_runtime(code, deployed["immutableReferences"]))).hexdigest()
+        deployment["onChainRuntimeVerified"] = True
         deployment["checkedAtBlock"] = block
         deployment["verifiedConfiguration"] = expected
         deployment["buildSettings"] = {

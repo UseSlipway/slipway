@@ -1,6 +1,7 @@
 import { getAddress, parseAbiItem, type Address, type Log } from "viem";
 import { getChainConfig, getPublicClient, type SlipwayChainId } from "../chains/config";
 import { db } from "../db/index";
+import { scanLegacyRouterActivity } from "./legacyRouterMonitor";
 
 const ponsFactory = "0x7ed598bcef8bd9edd8c97a195c6d13f40801ec7e" as Address;
 const clankerV4Factory = "0xe85a59c628f7d27878aceb4bf3b35733630083a9" as Address;
@@ -119,6 +120,7 @@ export function startEventIndexer() {
           }));
         }
       }
+      await scanLegacyRouterActivity();
     } finally {
       setTimeout(poll, 3_000).unref?.();
     }

@@ -5,6 +5,8 @@ import {SlipwayFeeRouter, IPonsFactoryLookup} from "../src/SlipwayFeeRouter.sol"
 
 interface Vm {
     function deal(address account, uint256 balance) external;
+    function expectRevert(bytes4 revertData) external;
+    function expectPartialRevert(bytes4 revertData) external;
 }
 
 contract MockToken {
@@ -59,6 +61,22 @@ contract MockSwapRouter {
     }
 }
 
+contract ReenteringSwapRouter {
+    SlipwayFeeRouter private router;
+    bytes private reentryCall;
+    bool public reentrySucceeded;
+
+    function configure(SlipwayFeeRouter router_, bytes calldata call_) external {
+        router = router_;
+        reentryCall = call_;
+    }
+
+    function swap(address tokenOut, address recipient, uint256 amountOut) external {
+        (reentrySucceeded,) = address(router).call(reentryCall);
+        MockToken(tokenOut).mint(recipient, amountOut);
+    }
+}
+
 contract MockUniversalRouter {
     MockPermit2 private immutable permit2;
     constructor(MockPermit2 permit2_) { permit2 = permit2_; }
@@ -78,6 +96,7 @@ contract MockPonsFactory is IPonsFactoryLookup {
     function set(address token, address curve) external {
         launched[token] = LaunchedToken(token, curve, address(1), address(1), address(0), 1 ether, 3000, 60, 0, false, 0, 0, 0, 0, true);
     }
+    function setPhase(address token, uint8 phase) external { launched[token].phase = phase; }
     function getLaunchedToken(address token) external view returns (LaunchedToken memory) { return launched[token]; }
 }
 
@@ -224,5 +243,184 @@ contract SlipwayFeeRouterTest {
         require(received == 25, "wrong Pons output");
         require(address(this).balance == 40, "native partial fill was not refunded");
         require(ponsToken.balanceOf(address(this)) == 25, "Pons token not delivered");
+    }
+
+    function testV4RejectsWrongVenue() external {
+        SlipwayFeeRouter.ExactInParams memory params = SlipwayFeeRouter.ExactInParams({
+            tokenIn: address(tokenIn), tokenOut: address(tokenOut), venue: address(swapRouter), amountIn: 1,
+            amountOutMin: 0, protocolFeeBps: 0, integratorFeeBps: 0, integratorRecipient: address(0)
+        });
+        vm.expectRevert(SlipwayFeeRouter.InvalidVenue.selector);
+        router.executeExactInV4(params, "");
+    }
+
+    function testV4NativeRejectsWrongVenue() external {
+        SlipwayFeeRouter.ExactInParams memory params = SlipwayFeeRouter.ExactInParams({
+            tokenIn: address(tokenIn), tokenOut: address(tokenOut), venue: address(swapRouter), amountIn: 1,
+            amountOutMin: 0, protocolFeeBps: 0, integratorFeeBps: 0, integratorRecipient: address(0)
+        });
+        vm.expectRevert(SlipwayFeeRouter.InvalidVenue.selector);
+        router.executeExactInV4Native(params, false, false, "");
+    }
+
+    function testV4NativeRejectsUnwrapWithNonWrappedInput() external {
+        SlipwayFeeRouter.ExactInParams memory params = SlipwayFeeRouter.ExactInParams({
+            tokenIn: address(tokenIn), tokenOut: address(tokenOut), venue: address(universalRouter), amountIn: 1,
+            amountOutMin: 0, protocolFeeBps: 0, integratorFeeBps: 0, integratorRecipient: address(0)
+        });
+        vm.expectRevert(SlipwayFeeRouter.InvalidAddress.selector);
+        router.executeExactInV4Native(params, true, false, "");
+    }
+
+    function testPonsRejectsWrongCurve() external {
+        MockToken ponsToken = new MockToken();
+        MockPonsCurve curve = new MockPonsCurve(ponsToken, 0, 1);
+        ponsFactory.set(address(ponsToken), address(curve));
+        SlipwayFeeRouter.ExactInParams memory params = SlipwayFeeRouter.ExactInParams({
+            tokenIn: address(wrappedNative), tokenOut: address(ponsToken), venue: address(swapRouter), amountIn: 1,
+            amountOutMin: 0, protocolFeeBps: 0, integratorFeeBps: 0, integratorRecipient: address(0)
+        });
+        vm.expectRevert(SlipwayFeeRouter.InvalidPonsCurve.selector);
+        router.executeExactInPonsNative(params, "");
+    }
+
+    function testPonsRejectsNonBondingPhase() external {
+        MockToken ponsToken = new MockToken();
+        MockPonsCurve curve = new MockPonsCurve(ponsToken, 0, 1);
+        ponsFactory.set(address(ponsToken), address(curve));
+        ponsFactory.setPhase(address(ponsToken), 1);
+        SlipwayFeeRouter.ExactInParams memory params = SlipwayFeeRouter.ExactInParams({
+            tokenIn: address(wrappedNative), tokenOut: address(ponsToken), venue: address(curve), amountIn: 1,
+            amountOutMin: 0, protocolFeeBps: 0, integratorFeeBps: 0, integratorRecipient: address(0)
+        });
+        vm.expectRevert(SlipwayFeeRouter.InvalidPonsCurve.selector);
+        router.executeExactInPonsNative(params, "");
+    }
+
+    function testRejectsProtocolFeeAboveCap() external {
+        SlipwayFeeRouter.ExactInParams memory params = SlipwayFeeRouter.ExactInParams({
+            tokenIn: address(tokenIn), tokenOut: address(tokenOut), venue: address(swapRouter), amountIn: 1,
+            amountOutMin: 0, protocolFeeBps: 21, integratorFeeBps: 0, integratorRecipient: address(0)
+        });
+        vm.expectRevert(SlipwayFeeRouter.InvalidFee.selector);
+        router.executeExactIn(params, "");
+    }
+
+    function testRejectsZeroAmount() external {
+        SlipwayFeeRouter.ExactInParams memory params = SlipwayFeeRouter.ExactInParams({
+            tokenIn: address(tokenIn), tokenOut: address(tokenOut), venue: address(swapRouter), amountIn: 0,
+            amountOutMin: 0, protocolFeeBps: 0, integratorFeeBps: 0, integratorRecipient: address(0)
+        });
+        vm.expectRevert(SlipwayFeeRouter.InvalidAmount.selector);
+        router.executeExactIn(params, "");
+    }
+
+    function testRejectsZeroFeeRecipientAtConstruction() external {
+        vm.expectRevert(SlipwayFeeRouter.InvalidFeeRecipient.selector);
+        new SlipwayFeeRouter(address(0), address(swapRouter), address(universalRouter), address(permit2), address(wrappedNative), address(ponsFactory));
+    }
+
+    function testRejectsPonsFactoryWithoutCodeAtConstruction() external {
+        vm.expectRevert(SlipwayFeeRouter.InvalidAddress.selector);
+        new SlipwayFeeRouter(address(this), address(swapRouter), address(universalRouter), address(permit2), address(wrappedNative), address(0xBEEF));
+    }
+
+    function testRejectsZeroTokenAddress() external {
+        SlipwayFeeRouter.ExactInParams memory params = SlipwayFeeRouter.ExactInParams({
+            tokenIn: address(0), tokenOut: address(tokenOut), venue: address(swapRouter), amountIn: 1,
+            amountOutMin: 0, protocolFeeBps: 0, integratorFeeBps: 0, integratorRecipient: address(0)
+        });
+        vm.expectRevert(SlipwayFeeRouter.InvalidAddress.selector);
+        router.executeExactIn(params, "");
+    }
+
+    function testRejectsIntegratorFeeAboveCap() external {
+        SlipwayFeeRouter.ExactInParams memory params = SlipwayFeeRouter.ExactInParams({
+            tokenIn: address(tokenIn), tokenOut: address(tokenOut), venue: address(swapRouter), amountIn: 1,
+            amountOutMin: 0, protocolFeeBps: 0, integratorFeeBps: 101, integratorRecipient: address(1)
+        });
+        vm.expectRevert(SlipwayFeeRouter.InvalidFee.selector);
+        router.executeExactIn(params, "");
+    }
+
+    function testRejectsZeroIntegratorRecipient() external {
+        SlipwayFeeRouter.ExactInParams memory params = SlipwayFeeRouter.ExactInParams({
+            tokenIn: address(tokenIn), tokenOut: address(tokenOut), venue: address(swapRouter), amountIn: 1,
+            amountOutMin: 0, protocolFeeBps: 0, integratorFeeBps: 1, integratorRecipient: address(0)
+        });
+        vm.expectRevert(SlipwayFeeRouter.InvalidIntegratorRecipient.selector);
+        router.executeExactIn(params, "");
+    }
+
+    function testRejectsRouterAsIntegratorRecipient() external {
+        SlipwayFeeRouter.ExactInParams memory params = SlipwayFeeRouter.ExactInParams({
+            tokenIn: address(tokenIn), tokenOut: address(tokenOut), venue: address(swapRouter), amountIn: 1,
+            amountOutMin: 0, protocolFeeBps: 0, integratorFeeBps: 1, integratorRecipient: address(router)
+        });
+        vm.expectRevert(SlipwayFeeRouter.InvalidIntegratorRecipient.selector);
+        router.executeExactIn(params, "");
+    }
+
+    function testRevertsWhenMeasuredOutputIsBelowMinimum() external {
+        tokenIn.mint(address(this), 100);
+        tokenIn.approve(address(router), 100);
+        SlipwayFeeRouter.ExactInParams memory params = SlipwayFeeRouter.ExactInParams({
+            tokenIn: address(tokenIn), tokenOut: address(tokenOut), venue: address(swapRouter), amountIn: 100,
+            amountOutMin: 51, protocolFeeBps: 0, integratorFeeBps: 0, integratorRecipient: address(0)
+        });
+        bytes memory data = abi.encodeCall(MockSwapRouter.swap, (address(tokenIn), address(tokenOut), address(router), 100, 50));
+        vm.expectPartialRevert(SlipwayFeeRouter.InsufficientOutput.selector);
+        router.executeExactIn(params, data);
+        require(tokenIn.balanceOf(address(this)) == 100, "input transfer not reverted");
+        require(tokenOut.balanceOf(address(this)) == 0, "output leaked after revert");
+    }
+
+    function testFuzzFeeMath(uint96 rawAmount, uint16 rawProtocolFee, uint16 rawIntegratorFee) external {
+        uint256 amountIn = uint256(rawAmount) + 1;
+        uint16 protocolFeeBps = rawProtocolFee % (router.MAX_PROTOCOL_FEE_BPS() + 1);
+        uint16 integratorFeeBps = rawIntegratorFee % (router.MAX_INTEGRATOR_FEE_BPS() + 1);
+        uint256 expectedProtocolFee = amountIn * protocolFeeBps / router.BPS_DENOMINATOR();
+        uint256 expectedIntegratorFee = amountIn * integratorFeeBps / router.BPS_DENOMINATOR();
+        uint256 expectedVenueAmount = amountIn - expectedProtocolFee - expectedIntegratorFee;
+        address integrator = address(0xBEEF);
+        uint256 recipientBefore = tokenIn.balanceOf(address(this));
+
+        tokenIn.mint(address(this), amountIn);
+        tokenIn.approve(address(router), amountIn);
+        SlipwayFeeRouter.ExactInParams memory params = SlipwayFeeRouter.ExactInParams({
+            tokenIn: address(tokenIn), tokenOut: address(tokenOut), venue: address(swapRouter), amountIn: amountIn,
+            amountOutMin: 1, protocolFeeBps: protocolFeeBps, integratorFeeBps: integratorFeeBps,
+            integratorRecipient: integrator
+        });
+        bytes memory data = abi.encodeCall(MockSwapRouter.swap, (
+            address(tokenIn), address(tokenOut), address(router), expectedVenueAmount, 1
+        ));
+        router.executeExactIn(params, data);
+
+        require(tokenIn.balanceOf(address(this)) == recipientBefore + expectedProtocolFee, "protocol fee math mismatch");
+        require(tokenIn.balanceOf(integrator) == expectedIntegratorFee, "integrator fee math mismatch");
+        require(tokenIn.balanceOf(address(swapRouter)) == expectedVenueAmount, "venue amount math mismatch");
+    }
+
+    function testReentrantVenueCannotEnterRouterTwice() external {
+        ReenteringSwapRouter maliciousVenue = new ReenteringSwapRouter();
+        SlipwayFeeRouter guardedRouter = new SlipwayFeeRouter(
+            address(this), address(maliciousVenue), address(universalRouter), address(permit2), address(wrappedNative), address(ponsFactory)
+        );
+        SlipwayFeeRouter.ExactInParams memory params = SlipwayFeeRouter.ExactInParams({
+            tokenIn: address(tokenIn), tokenOut: address(tokenOut), venue: address(maliciousVenue), amountIn: 100,
+            amountOutMin: 50, protocolFeeBps: 0, integratorFeeBps: 0, integratorRecipient: address(0)
+        });
+        bytes memory venueCall = abi.encodeCall(ReenteringSwapRouter.swap, (address(tokenOut), address(guardedRouter), 50));
+        bytes memory reentryCall = abi.encodeCall(SlipwayFeeRouter.executeExactIn, (params, venueCall));
+        maliciousVenue.configure(guardedRouter, reentryCall);
+
+        tokenIn.mint(address(this), 100);
+        tokenIn.approve(address(guardedRouter), 100);
+        require(guardedRouter.executeExactIn(params, venueCall) == 50, "outer swap failed");
+        require(!maliciousVenue.reentrySucceeded(), "nested swap unexpectedly succeeded");
+        require(tokenIn.balanceOf(address(this)) == 100, "unused input was not returned");
+        require(tokenOut.balanceOf(address(this)) == 50, "output was not delivered");
+        require(tokenIn.balanceOf(address(guardedRouter)) == 0, "input stranded after reentry attempt");
     }
 }
