@@ -456,3 +456,19 @@ export async function getTrending(endpoint, { window = '1h', chain, limit = 12 }
   })
   return readJson(response)
 }
+
+export async function getCreatorHistory(endpoint, chain, token) {
+  if (!['rhc', 'base'].includes(chain) || typeof token !== 'string' || !/^0x[a-fA-F0-9]{40}$/.test(token)) {
+    throw new Error('Provide a supported chain and token address.')
+  }
+  const query = new URLSearchParams({ chain, token })
+  const response = await fetch(apiUrl(apiRoot(endpoint), 'v1/events/creator', query.toString()), {
+    method: 'GET',
+    credentials: 'omit',
+    headers: { Accept: 'application/json' },
+    signal: AbortSignal.timeout(15_000),
+  }).catch((error) => {
+    throw new Error(error.name === 'TimeoutError' ? 'Creator history took too long to respond.' : 'Could not reach Slipway creator history.')
+  })
+  return readJson(response)
+}

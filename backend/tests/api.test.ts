@@ -314,6 +314,13 @@ describe("backend API surface", () => {
     }
   });
 
+  test("validates creator lookups before database access", async () => {
+    for (const query of ["chain=solana&token=0x" + "a".repeat(40), "chain=rhc&token=nope", "chain=rhc", "token=0x" + "a".repeat(40)]) {
+      const response = await apiFetch(`${origin}/v1/events/creator?${query}`);
+      expect(response.status, query).toBe(400);
+    }
+  });
+
   test("validates event feed filters before database access", async () => {
     const badCursor = await apiFetch(`${origin}/v1/events?after=-1`);
     const badChain = await apiFetch(`${origin}/v1/events?chain=solana`);

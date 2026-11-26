@@ -80,3 +80,29 @@ button.slipway-trending-row:hover{background:var(--soft)}
 .slipway-trending-price{display:flex;flex-direction:column;align-items:flex-end;gap:2px}
 .slipway-trending-price small{font-size:10px;color:var(--muted)}
 @media(max-width:900px){.slipway-trending-list{grid-template-columns:1fr}}
+.market-side-col{display:flex;flex-direction:column;gap:18px;min-width:0}
+.creator-card h3{margin-bottom:10px}
+.creator-card p{font-size:12px}
+.creator-muted{color:var(--muted);line-height:1.5}
+.creator-card .creator-muted:last-child{margin-top:12px;font-size:11px}
+.creator-address{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 10px}
+.creator-address a{font-family:var(--mono,monospace);font-size:13px;color:var(--ink);text-decoration:none}
+.creator-address a:hover{text-decoration:underline}
+.creator-address span{color:var(--muted)}
+.creator-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:14px 0 0}
+.creator-stats div{padding:10px;border-radius:12px;background:var(--soft);border:1px solid var(--line)}
+.creator-stats dt{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.creator-stats dd{margin:4px 0 0;font-size:17px;font-weight:700;font-variant-numeric:tabular-nums}
+.creator-stats small{font-size:11px;font-weight:500;color:var(--muted)}
+.creator-tags{list-style:none;margin:12px 0 0;padding:0;display:flex;flex-wrap:wrap;gap:6px}
+.creator-tags li{font-size:10.5px;font-weight:650;padding:3px 9px;border-radius:999px;border:1px solid var(--line);color:var(--muted)}
+.creator-tags li.is-good{color:#2f6b45;background:#4f9d6922;border-color:#4f9d6955}
+.creator-tags li.is-warn{color:#8a5a1c;background:#d8b5682e;border-color:#d8b56877}
+.lp[data-theme=dark] .creator-tags li.is-good{color:#9fdcb3}
+.lp[data-theme=dark] .creator-tags li.is-warn{color:#f2dba8}
+.creator-label{margin-top:16px;font-size:10px!important;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+.creator-recent{list-style:none;margin:6px 0 0;padding:0}
+.creator-recent li{display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--line);font-size:12px}
+.creator-recent a{color:var(--ink);text-decoration:none;font-weight:600}
+.creator-recent a:hover{text-decoration:underline}
+.creator-recent span{color:var(--muted);margin-left:auto}

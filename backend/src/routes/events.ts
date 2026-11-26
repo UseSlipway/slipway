@@ -50,3 +50,60 @@ eventRouter.get("/", async (request, response) => {
     response.status(503).json({ error: "Event feed is temporarily unavailable" });
   }
 });
+
+// Creator reputation for a token: who launched it (from the indexed launch event) and how their
+// other indexed launches went. Only public onchain data; counts start when Slipway began indexing.
+const tokenExpr = "lower(coalesce(payload->'args'->>'token', payload->'args'->>'tokenAddress'))";
+const creatorExpr = "lower(coalesce(payload->'args'->>'deployer', payload->'args'->>'tokenAdmin'))";
+eventRouter.get("/creator", async (request, response) => {
+  const chain = request.query.chain;
+  const token = request.query.token;
+  if ((chain !== "rhc" && chain !== "base") || typeof token !== "string" || !/^0x[a-fA-F0-9]{40}$/.test(token)) {
+    response.status(400).json({ error: "Provide a supported chain and token address" });
+    return;
+  }
+  try {
+    const since = await db.query<{ since: Date | null }>("SELECT min(created_at) AS since FROM chain_events WHERE chain = $1 AND event_type = 'token.launched'", [chain]);
+    const indexedSince = since.rows[0]?.since ?? null;
+    const launch = await db.query<{ creator: string | null; at: Date }>(
+      `SELECT ${creatorExpr} AS creator, created_at AS at FROM chain_events
+       WHERE chain = $1 AND event_type = 'token.launched' AND ${tokenExpr} = $2 ORDER BY id ASC LIMIT 1`,
+      [chain, token.toLowerCase()],
+    );
+    const creator = launch.rows[0]?.creator;
+    if (!creator || !/^0x[a-f0-9]{40}$/.test(creator)) {
+      response.setHeader("Cache-Control", "public, max-age=60").json({ found: false, chain, token: token.toLowerCase(), indexedSince });
+      return;
+    }
+    const launches = await db.query<{ token: string; at: Date; graduated: boolean }>(
+      `SELECT l.token, l.at, EXISTS (
+         SELECT 1 FROM chain_events g WHERE g.chain = $1 AND g.event_type = 'pool.graduated'
+           AND lower(coalesce(g.payload->'args'->>'token', g.payload->'args'->>'tokenAddress')) = l.token
+       ) AS graduated
+       FROM (
+         SELECT ${tokenExpr} AS token, created_at AS at FROM chain_events
+         WHERE chain = $1 AND event_type = 'token.launched' AND ${creatorExpr} = $2
+         ORDER BY id DESC LIMIT 500
+       ) l`,
+      [chain, creator],
+    );
+    const rows = launches.rows.filter((row) => /^0x[a-f0-9]{40}$/.test(row.token));
+    const times = rows.map((row) => new Date(row.at).getTime());
+    response.setHeader("Cache-Control", "public, max-age=60").json({
+      found: true,
+      chain,
+      token: token.toLowerCase(),
+      creator,
+      launchedAt: launch.rows[0]!.at,
+      launches: rows.length,
+      graduated: rows.filter((row) => row.graduated).length,
+      firstLaunchAt: times.length ? new Date(Math.min(...times)).toISOString() : null,
+      lastLaunchAt: times.length ? new Date(Math.max(...times)).toISOString() : null,
+      recent: rows.slice(0, 8).map((row) => ({ token: row.token, at: row.at, graduated: row.graduated })),
+      capped: launches.rows.length >= 500,
+      indexedSince,
+    });
+  } catch {
+    response.status(503).json({ error: "Creator history is temporarily unavailable" });
+  }
+});
