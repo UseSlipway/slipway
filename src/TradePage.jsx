@@ -14,14 +14,15 @@ const quoteTokenAddresses={'Robinhood Chain':{WETH:'0x0bd7d308f8e1639fab988df18a
 const balanceOfAbi=[{type:'function',name:'balanceOf',stateMutability:'view',inputs:[{name:'account',type:'address'}],outputs:[{type:'uint256'}]},{type:'function',name:'decimals',stateMutability:'view',inputs:[],outputs:[{type:'uint8'}]}];
 function friendlyTradeError(error){const message=String(error?.shortMessage||error?.message||'The trade could not be completed.');if(/user rejected|user denied|request rejected|code 4001/i.test(message))return 'You rejected the request in your wallet. Your tokens were not moved.';if(/insufficient funds/i.test(message))return 'Your wallet does not have enough of the required asset or network gas for this transaction.';if(/expired|stale quote/i.test(message))return 'This quote has expired. Enter the amount again to get a fresh quote.';if(/revert|execution reverted/i.test(message))return 'The trade could not execute at the quoted terms. Refresh the quote and try again.';return message}
 
-export default function TradePage({data,onConnect,onSettings}){
+export default function TradePage({data,onConnect,onSettings,initialToken=null}){
  const {data:connectorClient}=useConnectorClient();
- const [selected,setSelected]=useState(null),[side,setSide]=useState('Buy'),[amount,setAmount]=useState(''),[quote,setQuote]=useState(null),[quoteLoading,setQuoteLoading]=useState(false),[build,setBuild]=useState(null),[busy,setBusy]=useState(false),[txStatuses,setTxStatuses]=useState([]),[interaction,setInteraction]=useState(null);
+ const [selected,setSelected]=useState(initialToken),[side,setSide]=useState('Buy'),[amount,setAmount]=useState(''),[quote,setQuote]=useState(null),[quoteLoading,setQuoteLoading]=useState(false),[build,setBuild]=useState(null),[busy,setBusy]=useState(false),[txStatuses,setTxStatuses]=useState([]),[interaction,setInteraction]=useState(null);
  const publicClient=usePublicClient({chainId:selected?launchChainIds[selected.chain]:undefined});
  const [resolvedRoute,setResolvedRoute]=useState(null),[inputBalance,setInputBalance]=useState(null);
  const [query,setQuery]=useState(''),[rows,setRows]=useState([]),[loading,setLoading]=useState(true),[feedError,setFeedError]=useState(''),[updated,setUpdated]=useState(null);
  const revision=useRef(0),discoverRef=useRef(null),ticketRef=useRef(null);
- const {item:liveItem,updated:liveUpdated,stale:liveStale}=usePoolSnapshot(selected,data.settings?.endpoint);const market=liveItem?.id===selected?.id?liveItem:selected;
+ useEffect(()=>{if(initialToken){setSelected(initialToken);setSide('Buy');setAmount('');setQuote(null);setBuild(null);setInteraction(null)}},[initialToken?.id]);
+ const {item:liveItem,updated:liveUpdated,stale:liveStale}=usePoolSnapshot(selected,data.settings?.endpoint);const market=liveItem?.token?.toLowerCase()===selected?.token?.toLowerCase()&&selected?.pool?liveItem:selected;
  useEffect(()=>{let active=true;setResolvedRoute(null);if(!selected)return()=>{active=false};resolveToken(data.settings?.endpoint,selected.chain,selected.token).then(route=>{if(active)setResolvedRoute(route)}).catch(()=>{});return()=>{active=false}},[selected?.chain,selected?.token,data.settings?.endpoint]);
  const ponsQuoteAsset=resolvedRoute?.venue==='pons-v2'&&resolvedRoute.quoteAsset&&resolvedRoute.quoteAsset!=='—'?resolvedRoute.quoteAsset:null;
  const tradePair=ponsQuoteAsset||selected?.pair;

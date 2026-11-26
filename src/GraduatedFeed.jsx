@@ -49,7 +49,7 @@ export function poolsForTokens(json, network = 'robinhood') {
   return byToken;
 }
 
-export default function GraduatedFeed({ endpoint, onSelect, onGraduated }) {
+export default function GraduatedFeed({ endpoint, onSelect, onGraduated, showHeading = true }) {
   const [state, setState] = useState({ status: 'loading', items: [] });
   const [now, setNow] = useState(Date.now());
   useEffect(() => {
@@ -86,12 +86,12 @@ export default function GraduatedFeed({ endpoint, onSelect, onGraduated }) {
   }, [endpoint]);
 
   return <section className="graduated-feed" aria-labelledby="graduated-title">
-    <div className="lp-section-head">
+    {showHeading && <div className="lp-section-head">
       <div>
         <h2 id="graduated-title">Just graduated</h2>
         <p>Pons tokens whose bonding curve filled and moved into a Uniswap pool · Robinhood Chain</p>
       </div>
-    </div>
+    </div>}
     {state.status === 'loading' ? <div className="market-loading" role="status">Checking recent graduations…</div>
       : state.status === 'error' ? <div className="market-empty-state" role="status"><strong>Graduations are temporarily unavailable</strong><span>The event feed did not respond. This retries every minute.</span></div>
         : state.status === 'empty' ? <div className="market-empty-state graduated-empty"><strong>No graduations yet</strong><span>Tokens appear here the moment their Pons curve fills and liquidity moves to Uniswap. Most launches never graduate.</span></div>

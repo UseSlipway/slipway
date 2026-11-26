@@ -23,7 +23,7 @@ const routes = [
   { method: 'GET', pattern: /^public\/v1\/?$/ },
   { method: 'GET', pattern: /^public\/v1\/chains$/ },
   { method: 'GET', pattern: /^public\/v1\/tokens\/(rhc|base)\/[A-Za-z0-9]+$/ },
-  { method: 'GET', pattern: /^public\/v1\/market\/(networks(\/(robinhood|base))?\/trending_pools|search\/pools|networks\/(robinhood|base)\/pools\/[A-Za-z0-9]{32,64}(\/ohlcv\/(minute|hour|day))?)$/ },
+  { method: 'GET', pattern: /^public\/v1\/market\/(networks(\/(robinhood|base))?\/trending_pools|search\/pools|networks\/(robinhood|base)\/pools\/[A-Za-z0-9]{32,64}(\/ohlcv\/(minute|hour|day)|\/trades)?)$/ },
   { method: 'GET', pattern: /^public\/v1\/events\/?$/ },
   { method: 'POST', pattern: /^public\/v1\/transactions\/submit$/ },
   { method: 'GET', pattern: /^public\/v1\/transactions\/(rhc|base)\/0x[a-fA-F0-9]{64}$/ },

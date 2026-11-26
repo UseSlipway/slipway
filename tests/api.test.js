@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { chainIds, checkBackend, getEvents, getTransactionStatus, isTokenAddress, evmBuildMatches, launchChainIds, launchQuoteMatches, launchQuoteRequest, marketRequest, createWorkspaceSession, getCloudWorkspace, putCloudWorkspace, quoteRequest, formatTokenAmount, request, resolveToken, submitBuiltTransactions, submitTransaction, uploadTokenImage } from '../src/api.js'
+import { chainIds, checkBackend, getEvents, getPoolTrades, getTransactionStatus, isTokenAddress, evmBuildMatches, launchChainIds, launchQuoteMatches, launchQuoteRequest, marketRequest, createWorkspaceSession, getCloudWorkspace, putCloudWorkspace, quoteRequest, formatTokenAmount, request, resolveToken, submitBuiltTransactions, submitTransaction, uploadTokenImage } from '../src/api.js'
 
 const address = '0x000000000000000000000000000000000000dead'
 
@@ -199,6 +199,18 @@ test('event feed requests validate filters and encode pagination on the API path
   assert.equal(feed.nextCursor, 12)
   await assert.rejects(getEvents('https://service.example', { chain: 'solana' }), /event feed filters/)
   await assert.rejects(getEvents('https://service.example', { wallet: 'not-a-wallet' }), /event feed filters/)
+})
+
+test('pool trades use the shared cached market proxy and validate chain and pool address', async (t) => {
+  const originalFetch = globalThis.fetch
+  t.after(() => { globalThis.fetch = originalFetch })
+  let target
+  globalThis.fetch = async url => { target = new URL(String(url)); return new Response(JSON.stringify({ data: [] }), { status: 200 }) }
+  const pool = '0x' + 'b'.repeat(40)
+  assert.deepEqual(await getPoolTrades('https://service.example', 'base', pool), { data: [] })
+  assert.equal(target.pathname, `/v1/market/networks/base/pools/${pool}/trades`)
+  assert.equal(target.search, '')
+  await assert.rejects(getPoolTrades('https://service.example', 'solana', pool), /supported pool/)
 })
 
 test('token resolution encodes the address and validates response fields', async (t) => {

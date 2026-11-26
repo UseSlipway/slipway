@@ -255,6 +255,13 @@ export async function marketRequest(endpoint, path, signal) {
   return waitForMarketResponse(request, signal)
 }
 
+export async function getPoolTrades(endpoint, network, pool, signal) {
+  if (!['robinhood', 'base'].includes(network) || typeof pool !== 'string' || !/^[A-Za-z0-9]{32,66}$/.test(pool)) {
+    throw new Error('Provide a supported pool address.')
+  }
+  return marketRequest(endpoint, `networks/${network}/pools/${pool}/trades`, signal)
+}
+
 export async function submitTransaction(endpoint, chain, signedTransaction) {
   if (!['rhc', 'base'].includes(chain) || typeof signedTransaction !== 'string' || !/^0x(?:[a-fA-F0-9]{2}){1,100000}$/.test(signedTransaction)) {
     throw new Error('Provide a supported chain and signed EVM transaction.')

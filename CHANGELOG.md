@@ -2,6 +2,13 @@
 
 Notable project changes are recorded here. Contract deployments and audit follow-ups are linked to the technical records in `technical-docs/` and `contracts/deployments/`.
 
+## 2026-11-27 — Live new launches
+
+- Added a newest-first feed for Pons launches on Robinhood Chain and Clanker launches on Base, with creator and launch age details.
+- Selecting a new launch opens the trade view with its token preselected, including tokens that do not have a market pool yet.
+- Added recent GeckoTerminal pool trades when available, through the shared cached market proxy.
+- No contract changes.
+
 ## 2026-11-26 — Product and interface updates
 
 Site and dapp only; no contract changes. Release notes are also published at https://tryslipway.com/updates.

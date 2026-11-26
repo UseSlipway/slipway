@@ -106,3 +106,22 @@ button.slipway-trending-row:hover{background:var(--soft)}
 .creator-recent a{color:var(--ink);text-decoration:none;font-weight:600}
 .creator-recent a:hover{text-decoration:underline}
 .creator-recent span{color:var(--muted);margin-left:auto}
+
+.market-feed-tabs{display:flex;align-items:center;gap:8px;margin:18px 0 20px;border-bottom:1px solid var(--line);overflow-x:auto}
+.market-feed-tabs>[role=tab]{flex:none;padding:12px 16px;border:0;border-bottom:2px solid transparent;background:transparent;color:var(--muted);font:inherit;cursor:pointer;white-space:nowrap}
+.market-feed-tabs>[role=tab][aria-selected=true]{color:var(--ink);border-bottom-color:var(--accent);font-weight:700}
+.market-feed-tabs .lp-arrows{margin-left:auto;flex:none}
+.new-launch-list{align-items:stretch}
+.new-launch-card{flex:0 0 min(300px,82vw);display:flex;flex-direction:column;gap:12px;padding:16px;border:1px solid var(--line);border-radius:18px;background:var(--surface)}
+.new-launch-open{display:flex;flex-direction:column;gap:12px;width:100%;padding:0;border:0;background:none;color:inherit;text-align:left;font:inherit;cursor:pointer}
+.new-launch-card-head{display:flex;align-items:center;gap:12px;min-width:0}
+.new-launch-card-head>span:last-child{display:grid;min-width:0;gap:3px}
+.new-launch-card-head b,.new-launch-card-head small{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.new-launch-card-head small,.new-launch-meta,.new-launch-pair,.new-launch-creator,.new-launch-trades-empty{color:var(--muted);font-size:12px}
+.new-launch-meta{display:flex;flex-wrap:wrap;gap:8px}
+.new-launch-meta span{padding:4px 8px;border-radius:999px;background:var(--surface-muted,var(--line))}
+.new-launch-creator{display:flex;align-items:center;gap:6px;border-top:1px solid var(--line);padding-top:10px}
+.new-launch-creator a,.new-launch-trades a{color:var(--ink);text-decoration:none}
+.new-launch-trades{display:grid;gap:6px;font-size:11px}
+.new-launch-trades a{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+@media(max-width:600px){.market-feed-tabs{margin-top:12px}.market-feed-tabs>[role=tab]{padding:10px 11px;font-size:13px}.new-launch-card{flex-basis:82vw}}

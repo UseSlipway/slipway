@@ -28,6 +28,7 @@
 .trade-review-summary strong{overflow-wrap:anywhere;word-break:break-word}
 .trade-market-stats>div{min-width:0}
 .trade-market-stats strong{overflow-wrap:anywhere}
+.trade-launch-status{display:grid;gap:12px;margin:28px 0;padding:22px;border:1px solid var(--line);border-radius:18px;background:var(--soft)}.trade-launch-status p{margin:0;color:var(--muted);line-height:1.55;overflow-wrap:anywhere}.trade-launch-status a{color:var(--ink);text-decoration:underline;text-underline-offset:3px}.trade-launch-status code{display:block;margin-top:7px;overflow-wrap:anywhere;color:var(--ink)}
 @media(max-width:520px){
  .trade-page{padding-inline:max(14px,env(safe-area-inset-left)) max(14px,env(safe-area-inset-right))}
  .trade-header{min-width:0}
