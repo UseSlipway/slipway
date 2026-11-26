@@ -2,6 +2,8 @@
 
 Slipway is a non-custodial interface for discovering tokens and preparing trades across Base and Robinhood Chain. The app builds unsigned EVM transactions for a connected wallet to review and sign; Slipway does not hold wallet keys or custody user assets.
 
+**Slipway token CA:** `0xef8aad91c4292d469bd51f70835c8a6cb9c3f590`
+
 ## Features
 
 - Explore token and pool market data.
