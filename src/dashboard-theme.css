@@ -17,7 +17,7 @@
 .dashboard .dash-navigation nav button[aria-current=page]{background:#452b40;color:#fff7e8}
 .dashboard .search-input,.dashboard .workspace-panel,.dashboard .watch-grid article{background:#fffcf7e8;border-color:var(--line)}
 .dashboard input,.dashboard textarea{color:#352331;background:#fffcf7;border-color:var(--line)}
-.dashboard input::placeholder,.dashboard textarea::placeholder{color:#83717d}
+.dashboard input::placeholder,.dashboard textarea::placeholder{color:#67515d}
 .dashboard .settings-panel small,.dashboard .panel-header p,.dashboard .empty-state p{color:#72636d}
 .dashboard .status{color:#725021;background:#f5e6c8}
 .dashboard .toast{background:#452b40;color:#fff7e8}

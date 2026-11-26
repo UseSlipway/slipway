@@ -196,26 +196,63 @@ export async function checkBackend(endpoint) {
   return readJson(response)
 }
 
+const marketResponseCache = new Map()
+const marketInFlight = new Map()
+const MARKET_RESPONSE_TTL_MS = 8_000
+
+function cloneMarketResponse(value) {
+  return JSON.parse(JSON.stringify(value))
+}
+
+function waitForMarketResponse(promise, signal) {
+  if (!signal) return promise.then(cloneMarketResponse)
+  if (signal.aborted) return Promise.reject(new DOMException('The request was aborted.', 'AbortError'))
+  return new Promise((resolve, reject) => {
+    const onAbort = () => {
+      signal.removeEventListener('abort', onAbort)
+      reject(new DOMException('The request was aborted.', 'AbortError'))
+    }
+    signal.addEventListener('abort', onAbort, { once: true })
+    promise.then(
+      (value) => { signal.removeEventListener('abort', onAbort); resolve(cloneMarketResponse(value)) },
+      (error) => { signal.removeEventListener('abort', onAbort); reject(error) },
+    )
+  })
+}
+
 export async function marketRequest(endpoint, path, signal) {
   if (typeof path !== 'string' || path.startsWith('/') || path.includes('..')) {
     throw new Error('Choose a valid market data path.')
   }
   const root = apiRoot(endpoint)
-  const timeout = AbortSignal.timeout(15_000)
-  const requestSignal = signal && typeof AbortSignal.any === 'function'
-    ? AbortSignal.any([signal, timeout])
-    : timeout
   const [marketPath, query = ''] = path.split('?', 2)
-  const response = await fetch(apiUrl(root, `v1/market/${marketPath}`, query), {
-    method: 'GET',
-    credentials: 'omit',
-    headers: { Accept: 'application/json' },
-    signal: requestSignal,
-  }).catch((error) => {
-    if (error.name === 'AbortError') throw error
-    throw new Error(error.name === 'TimeoutError' ? 'Market data took too long to respond.' : 'Could not reach Slipway market data.')
-  })
-  return readJson(response)
+  const url = apiUrl(root, `v1/market/${marketPath}`, query)
+  const cached = marketResponseCache.get(url)
+  if (cached && cached.expiresAt > Date.now()) return waitForMarketResponse(Promise.resolve(cached.value), signal)
+  if (cached) marketResponseCache.delete(url)
+
+  let request = marketInFlight.get(url)
+  if (!request) {
+    request = (async () => {
+      const response = await fetch(url, {
+        method: 'GET',
+        credentials: 'omit',
+        headers: { Accept: 'application/json' },
+        signal: AbortSignal.timeout(15_000),
+      }).catch((error) => {
+        if (error.name === 'AbortError') throw error
+        throw new Error(error.name === 'TimeoutError' ? 'Market data took too long to respond.' : 'Could not reach Slipway market data.')
+      })
+      return readJson(response)
+    })()
+    marketInFlight.set(url, request)
+    request.then((value) => {
+      marketResponseCache.set(url, { value, expiresAt: Date.now() + MARKET_RESPONSE_TTL_MS })
+      if (marketResponseCache.size > 100) marketResponseCache.delete(marketResponseCache.keys().next().value)
+      marketInFlight.delete(url)
+    }, () => marketInFlight.delete(url))
+  }
+  return waitForMarketResponse(request, signal)
 }
 
 export async function submitTransaction(endpoint, chain, signedTransaction) {
