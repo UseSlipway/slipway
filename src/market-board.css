@@ -6,3 +6,10 @@
 .lp .market-empty-state{display:flex;flex-direction:column;align-items:center;gap:10px;padding:42px 20px;color:var(--muted);text-align:center}.lp .market-empty-state strong{color:var(--ink);font-size:16px}.lp .market-empty-state span{font-size:13px;line-height:1.5}.lp .market-empty-state .lp-secondary{margin-top:6px}.lp .market-token-actions{display:flex;align-items:center;gap:12px;margin-top:12px}.lp .market-token-actions .lp-secondary{padding:8px 12px}.lp .market-watchlist-link{font-size:12px;color:var(--muted);text-decoration:underline;text-underline-offset:3px}.lp .lp-filters select{max-width:190px}.lp .market-row .market-name small{white-space:normal;overflow-wrap:anywhere}
 @media(max-width:900px){.lp .lp-filter-row{width:100%}.lp .lp-filters{max-width:100%;flex-wrap:wrap;align-self:flex-start}.lp .lp-filters select{max-width:calc(50vw - 50px)}}
 @media(max-width:599px){.lp .market-token-actions{align-items:flex-start;flex-direction:column;gap:8px}.lp .lp-filters{align-self:stretch}.lp .lp-filters select{max-width:calc(50% - 6px);font-size:11px;padding-inline:10px}.lp .market-empty-state{padding:30px 14px}}
+.graduated-feed{margin-top:32px}
+.graduated-chip{display:inline-flex;align-items:center;gap:4px;width:max-content;padding:3px 8px;border-radius:999px;font-size:10px;font-weight:650;letter-spacing:.02em;color:#2f6b45;background:#4f9d6922;border:1px solid #4f9d6955}
+.lp[data-theme=dark] .graduated-chip{color:#9fdcb3;background:#4f9d6926;border-color:#4f9d6966}
+.market-name .graduated-chip{margin-left:6px;vertical-align:middle}
+.graduated-card{text-decoration:none;color:inherit}
+.graduated-card .market-trend-name small{color:var(--muted)}
+.graduated-empty{min-height:120px}

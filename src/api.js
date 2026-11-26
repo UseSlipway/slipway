@@ -325,17 +325,19 @@ export async function submitBuiltTransactions(endpoint, build, provider = global
   return results
 }
 
-export async function getEvents(endpoint, { after = 0, chain, types, wallet, limit = 100 } = {}) {
+export async function getEvents(endpoint, { after = 0, chain, types, wallet, limit = 100, order } = {}) {
   if (!Number.isSafeInteger(Number(after)) || Number(after) < 0 || !Number.isInteger(limit) || limit < 1 || limit > 500
     || (chain !== undefined && !['rhc', 'base'].includes(chain))
     || (wallet !== undefined && (typeof wallet !== 'string' || !/^0x[a-fA-F0-9]{40}$/.test(wallet)))
-    || (types !== undefined && (!Array.isArray(types) || types.length > 3 || types.some((type) => !['token.launched', 'pool.graduated', 'pool.initialized'].includes(type))))) {
+    || (types !== undefined && (!Array.isArray(types) || types.length > 3 || types.some((type) => !['token.launched', 'pool.graduated', 'pool.initialized'].includes(type))))
+    || (order !== undefined && !['asc', 'desc'].includes(order))) {
     throw new Error('Provide valid event feed filters.')
   }
   const query = new URLSearchParams({ after: String(after), limit: String(limit) })
   if (chain) query.set('chain', chain)
   if (wallet) query.set('wallet', wallet)
   if (types?.length) query.set('types', types.join(','))
+  if (order) query.set('order', order)
   const root = apiRoot(endpoint)
   const response = await fetch(apiUrl(root, 'v1/events', query.toString()), {
     method: 'GET',

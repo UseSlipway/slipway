@@ -13,6 +13,7 @@ Site and dapp only; no contract changes. Release notes are also published at htt
 - **Better trade preparation:** input balance and live quote, with what you pay, expected and minimum output, route, fees and slippage side by side before building a transaction.
 - **Wallet workspace for active users:** wallet ownership and sync status, a notice when the connected wallet changes, sorting, filtering and paging for launches, drafts and watched tokens, and a day-grouped activity timeline that includes onchain launches.
 - **Clearer trading status:** the trade page reports availability through the restricted routers and keeps the legacy-approval reminder separate.
+- **Just graduated feed:** the market board shows Pons tokens whose bonding curve just filled and moved into a Uniswap pool on Robinhood Chain, newest first, with FDV and 24h volume; graduated tokens carry a badge in the pool list.
 - **Landing and mobile polish:** a tighter first visit, better narrow-screen layouts for the dashboard, launch and trade views, and clearer live event feed states.
 
 ### Maintenance

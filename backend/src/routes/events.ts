@@ -10,12 +10,14 @@ eventRouter.get("/", async (request, response) => {
   const chain = request.query.chain;
   const typesRaw = request.query.types;
   const wallet = request.query.wallet;
+  const order = request.query.order;
   if (typeof afterRaw !== "string" || !/^\d{1,18}$/.test(afterRaw)
     || typeof limitRaw !== "string" || !/^\d{1,3}$/.test(limitRaw)
     || Number(limitRaw) < 1 || Number(limitRaw) > 500
     || (chain !== undefined && chain !== "base" && chain !== "rhc")
     || (wallet !== undefined && (typeof wallet !== "string" || !/^0x[a-fA-F0-9]{40}$/.test(wallet)))
-    || (typesRaw !== undefined && typeof typesRaw !== "string")) {
+    || (typesRaw !== undefined && typeof typesRaw !== "string")
+    || (order !== undefined && order !== "asc" && order !== "desc")) {
     response.status(400).json({ error: "Invalid event query" });
     return;
   }
@@ -39,7 +41,9 @@ eventRouter.get("/", async (request, response) => {
         OR lower(payload->'args'->>'msgSender') = ${walletParam})`;
     }
     values.push(Number(limitRaw));
-    sql += ` ORDER BY id ${wallet ? "DESC" : "ASC"} LIMIT $${values.length}`;
+    // Wallet views default to newest first; `order` lets other feeds (such as recent graduations) ask for it too.
+    const descending = order ? order === "desc" : Boolean(wallet);
+    sql += ` ORDER BY id ${descending ? "DESC" : "ASC"} LIMIT $${values.length}`;
     const result = await db.query(sql, values);
     response.setHeader("Cache-Control", "no-store").json({ events: result.rows, nextCursor: result.rows.at(-1)?.id ?? Number(afterRaw) });
   } catch {

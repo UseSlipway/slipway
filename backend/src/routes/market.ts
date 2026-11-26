@@ -13,12 +13,14 @@ export function setMarketFetcher(fetcher?: MarketFetch) {
 }
 const networkPattern = "(?:robinhood|base)";
 const poolPattern = "[A-Za-z0-9]{32,64}";
+const addressList = "0x[a-fA-F0-9]{40}(?:,0x[a-fA-F0-9]{40}){0,29}";
 const routes = [
   new RegExp(`^/networks/trending_pools$`),
   new RegExp(`^/networks/${networkPattern}/trending_pools$`),
   /^\/search\/pools$/,
   new RegExp(`^/networks/${networkPattern}/pools/${poolPattern}$`),
   new RegExp(`^/networks/${networkPattern}/pools/${poolPattern}/ohlcv/(minute|hour|day)$`),
+  new RegExp(`^/networks/${networkPattern}/tokens/multi/${addressList}$`),
 ];
 
 type CachedResponse = { status: number; contentType: string; body: string; fetchedAt: Date };
@@ -115,7 +117,7 @@ function validQuery(path: string, params: URLSearchParams): boolean {
         : new Set(["include"]);
   if ([...params.keys()].some((key) => !allowed.has(key))) return false;
   const include = params.get("include");
-  if (include && include !== "base_token,quote_token") return false;
+  if (include && include !== (path.includes("/tokens/multi/") ? "top_pools" : "base_token,quote_token")) return false;
   const network = params.get("network");
   if (network && !["robinhood", "base"].includes(network)) return false;
   const query = params.get("query");

@@ -131,6 +131,28 @@ describe("backend API surface", () => {
     }
   });
 
+  test("proxies multi-token lookups with top pools only", async () => {
+    let requested = "";
+    setMarketFetcher(async (input) => {
+      requested = String(input);
+      return new Response(JSON.stringify({ data: [] }), { status: 200, headers: { "content-type": "application/json" } });
+    });
+    try {
+      const a = `0x${"a".repeat(40)}`, b = `0x${"b".repeat(40)}`;
+      const ok = await apiFetch(`${origin}/v1/market/networks/robinhood/tokens/multi/${a},${b}?include=top_pools`);
+      expect(ok.status, await ok.clone().text()).toBe(200);
+      expect(requested).toBe(`https://api.geckoterminal.com/api/v2/networks/robinhood/tokens/multi/${a},${b}?include=top_pools`);
+      const badInclude = await apiFetch(`${origin}/v1/market/networks/robinhood/tokens/multi/${a}?include=base_token,quote_token`);
+      const badAddress = await apiFetch(`${origin}/v1/market/networks/robinhood/tokens/multi/not-an-address`);
+      const tooMany = await apiFetch(`${origin}/v1/market/networks/robinhood/tokens/multi/${Array(31).fill(a).join(",")}`);
+      expect(badInclude.status).toBe(400);
+      expect(badAddress.status).toBe(400);
+      expect(tooMany.status).toBe(400);
+    } finally {
+      setMarketFetcher();
+    }
+  });
+
   test("rejects arbitrary market routes and upstream query parameters", async () => {
     const unknown = await apiFetch(`${origin}/v1/market/proxy/https://example.com`);
     const unsafeQuery = await apiFetch(`${origin}/v1/market/search/pools?query=token&url=https://example.com`);
@@ -194,9 +216,11 @@ describe("backend API surface", () => {
     const badChain = await apiFetch(`${origin}/v1/events?chain=solana`);
     const badType = await apiFetch(`${origin}/v1/events?types=admin.secret`);
     const badWallet = await apiFetch(`${origin}/v1/events?wallet=not-a-wallet`);
+    const badOrder = await apiFetch(`${origin}/v1/events?order=random`);
     expect(badCursor.status).toBe(400);
     expect(badChain.status).toBe(400);
     expect(badType.status).toBe(400);
     expect(badWallet.status).toBe(400);
+    expect(badOrder.status).toBe(400);
   });
 });
