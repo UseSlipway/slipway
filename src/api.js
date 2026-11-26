@@ -439,3 +439,20 @@ export async function createDeveloperApiKey(endpoint, token, name) {
 export async function revokeDeveloperApiKey(endpoint, token, id) {
   return developerKeyRequest(endpoint, 'DELETE', token, undefined, id)
 }
+
+export async function getTrending(endpoint, { window = '1h', chain, limit = 12 } = {}) {
+  if (!['1h', '24h'].includes(window) || (chain !== undefined && !['rhc', 'base'].includes(chain)) || !Number.isInteger(limit) || limit < 1 || limit > 30) {
+    throw new Error('Provide valid trending filters.')
+  }
+  const query = new URLSearchParams({ window, limit: String(limit) })
+  if (chain) query.set('chain', chain)
+  const response = await fetch(apiUrl(apiRoot(endpoint), 'v1/trending', query.toString()), {
+    method: 'GET',
+    credentials: 'omit',
+    headers: { Accept: 'application/json' },
+    signal: AbortSignal.timeout(15_000),
+  }).catch((error) => {
+    throw new Error(error.name === 'TimeoutError' ? 'Trending took too long to respond.' : 'Could not reach Slipway trending.')
+  })
+  return readJson(response)
+}

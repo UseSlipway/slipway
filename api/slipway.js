@@ -9,6 +9,7 @@ const routes = [
   { method: 'POST', pattern: /^v1\/media\/images$/ },
   { method: 'GET', pattern: /^v1\/transactions\/(rhc|base)\/0x[a-fA-F0-9]{64}$/ },
   { method: 'GET', pattern: /^v1\/events$/ },
+  { method: 'GET', pattern: /^v1\/trending$/ },
   { method: 'GET', pattern: /^v1\/workspace\/?$/ },
   { method: 'PUT', pattern: /^v1\/workspace\/?$/ },
   { method: 'POST', pattern: /^v1\/workspace\/(challenge|verify)$/ },

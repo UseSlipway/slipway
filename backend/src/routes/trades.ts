@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { recordTokenActivity } from "./trending";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { decodeFunctionResult, encodeAbiParameters, encodeFunctionData, formatUnits, getAddress, isAddress, parseAbi, parseUnits, type Address } from "viem";
@@ -262,6 +263,7 @@ tradeRouter.post("/quote", async (request, response) => {
     const { db } = await import("../db/index");
     await db.query("DELETE FROM trade_quotes WHERE expires_at < now()");
     await db.query("INSERT INTO trade_quotes (id, chain, token_address, side, quote, expires_at) VALUES ($1, $2, $3, $4, $5::jsonb, $6)", [quote.id, config.id, token.toLowerCase(), input.side, JSON.stringify(quote), expiresAt]);
+    void recordTokenActivity(config.id, token, "quote");
     response.setHeader("Cache-Control", "no-store");
     response.json(quote);
   } catch {
@@ -340,6 +342,7 @@ tradeRouter.post("/build/trade", async (request, response) => {
         { kind: "evm_transaction", purpose: "approve_exact_input", chainId: config.chainId, from: wallet, to: tokenIn, value: "0x0", data: encodeFunctionData({ abi: erc20WriteAbi, functionName: "approve", args: [normalizeAddress(feeRouter), amountIn] }) },
         { kind: "evm_transaction", purpose: "execute_trade_with_fee", chainId: config.chainId, from: wallet, to: normalizeAddress(feeRouter), value: "0x0", data: feeCall }
       ];
+    if (typeof quote.token === "string") void recordTokenActivity(config.id, quote.token, "build");
     response.json({
       buildId: randomUUID(), quoteId: parsed.data.quoteId, chain: config.id, chainId: config.chainId,
       wallet, expiresAt: record.expires_at,

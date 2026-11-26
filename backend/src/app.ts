@@ -14,6 +14,7 @@ import { x402Router } from "./routes/x402";
 import { workspaceRouter } from "./routes/workspace";
 import { mediaRouter } from "./routes/media";
 import { publicApiRouter } from "./routes/publicApi";
+import { trendingRouter } from "./routes/trending";
 
 export const app = express();
 app.disable("x-powered-by");
@@ -95,6 +96,7 @@ app.use("/v1", tradeRouter);
 app.use("/v1/market", marketRouter);
 app.use("/v1/transactions", transactionRouter);
 app.use("/v1/events", eventRouter);
+app.use("/v1/trending", trendingRouter);
 app.use("/v1", launchRouter);
 app.use("/v1/x402", x402Router);
 app.use("/public/v1", publicApiRouter);

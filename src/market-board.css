@@ -68,3 +68,15 @@
 .price-marker-toggle span{color:var(--muted)}
 .lp[data-theme=dark] .price-event.is-graduated text{fill:#9fdcb3}
 .lp[data-theme=dark] .price-event.is-pool text{fill:#e7c596}
+.slipway-trending{margin-top:32px}
+.slipway-trending-list{list-style:none;margin:14px 0 0;padding:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px 24px}
+.slipway-trending-row{width:100%;display:grid;grid-template-columns:22px 44px minmax(0,1fr) auto;gap:12px;align-items:center;text-align:left;padding:10px 8px;border-bottom:1px solid var(--line);border-radius:10px;color:inherit}
+button.slipway-trending-row:hover{background:var(--soft)}
+.slipway-trending-rank{font-size:12px;font-weight:700;color:var(--muted);text-align:right;font-variant-numeric:tabular-nums}
+.slipway-trending-name{min-width:0}
+.slipway-trending-name b{margin-right:4px}
+.slipway-trending-name>span{color:var(--muted);font-size:12px}
+.slipway-trending-name small{display:block;margin-top:4px;font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.slipway-trending-price{display:flex;flex-direction:column;align-items:flex-end;gap:2px}
+.slipway-trending-price small{font-size:10px;color:var(--muted)}
+@media(max-width:900px){.slipway-trending-list{grid-template-columns:1fr}}

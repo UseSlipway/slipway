@@ -307,6 +307,13 @@ describe("backend API surface", () => {
     }
   });
 
+  test("validates trending queries before database access", async () => {
+    for (const query of ["window=7d", "chain=solana", "limit=0", "limit=31", "limit=abc"]) {
+      const response = await apiFetch(`${origin}/v1/trending?${query}`);
+      expect(response.status, query).toBe(400);
+    }
+  });
+
   test("validates event feed filters before database access", async () => {
     const badCursor = await apiFetch(`${origin}/v1/events?after=-1`);
     const badChain = await apiFetch(`${origin}/v1/events?chain=solana`);

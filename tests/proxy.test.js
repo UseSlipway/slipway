@@ -99,6 +99,23 @@ test('proxy allows multi-token market lookups and rejects malformed ones', async
   assert.equal(target, undefined)
 })
 
+test('proxy allows the trending endpoint', async (t) => {
+  const originalFetch = globalThis.fetch
+  const originalUrl = process.env.SLIPWAY_API_URL
+  process.env.SLIPWAY_API_URL = 'https://backend.example'
+  t.after(() => {
+    globalThis.fetch = originalFetch
+    if (originalUrl === undefined) delete process.env.SLIPWAY_API_URL
+    else process.env.SLIPWAY_API_URL = originalUrl
+  })
+  let target
+  globalThis.fetch = async (url) => { target = String(url); return new Response(JSON.stringify({ tokens: [] }), { status: 200 }) }
+  const res = mockResponse()
+  await handler({ url: '/api/slipway?path=v1%2Ftrending&window=1h&chain=rhc', method: 'GET', headers: {} }, res)
+  assert.equal(res.statusCode, 200)
+  assert.equal(target, 'https://backend.example/v1/trending?window=1h&chain=rhc')
+})
+
 test('proxy allows pool trades', async (t) => {
   const originalFetch = globalThis.fetch
   const originalUrl = process.env.SLIPWAY_API_URL
