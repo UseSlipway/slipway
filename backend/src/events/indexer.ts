@@ -132,6 +132,7 @@ async function storeLogs(source: typeof sources[number], logsByType: Array<{ typ
 // Only Pons on Robinhood Chain is backfilled; Clanker on Base launches far too many tokens to store.
 const backfillSources = new Set(["pons-v2-rhc"]);
 const backfillChunk = new Map<string, bigint>();
+const backfillState = new Map<string, { phase: string; lastError?: string; lastRunAt?: string; lastChunk?: string }>();
 async function findDeploymentBlock(source: typeof sources[number], head: bigint) {
   const configured = process.env[`BACKFILL_FLOOR_${source.id.replaceAll("-", "_").toUpperCase()}`];
   if (configured && /^\d+$/.test(configured)) return BigInt(configured);
@@ -151,12 +152,16 @@ async function findDeploymentBlock(source: typeof sources[number], head: bigint)
 
 async function backfillSource(source: typeof sources[number]) {
   if (!backfillSources.has(source.id)) return;
+  const state = backfillState.get(source.id) ?? { phase: "starting" };
+  backfillState.set(source.id, state);
+  state.lastRunAt = new Date().toISOString();
   const key = `${source.id}:backfill`;
   const existing = await db.query<{ last_block: string }>("SELECT last_block FROM chain_event_cursors WHERE source = $1", [key]);
   const floorRow = await db.query<{ last_block: string }>("SELECT last_block FROM chain_event_cursors WHERE source = $1", [`${source.id}:floor`]);
   let floor: bigint;
   if (floorRow.rows[0]) floor = BigInt(floorRow.rows[0].last_block);
   else {
+    state.phase = "finding deployment block";
     const client = getPublicClient(getChainConfig(source.chain)!);
     floor = await findDeploymentBlock(source, await client.getBlockNumber());
     await db.query("INSERT INTO chain_event_cursors (source, chain, last_block) VALUES ($1, $2, $3) ON CONFLICT (source) DO NOTHING", [`${source.id}:floor`, source.chain, floor.toString()]);
@@ -171,11 +176,12 @@ async function backfillSource(source: typeof sources[number]) {
     );
     const forward = await db.query<{ last_block: string }>("SELECT last_block FROM chain_event_cursors WHERE source = $1", [source.id]);
     const start = live.rows[0]?.first ? BigInt(live.rows[0].first) : forward.rows[0] ? BigInt(forward.rows[0].last_block) : null;
-    if (start == null) return;
+    if (start == null) { state.phase = "waiting for live indexing"; return }
     cursor = start - 1n;
     await db.query("INSERT INTO chain_event_cursors (source, chain, last_block) VALUES ($1, $2, $3) ON CONFLICT (source) DO NOTHING", [key, source.chain, cursor.toString()]);
   }
-  if (cursor < floor) return; // Complete.
+  if (cursor < floor) { state.phase = "complete"; return }
+  state.phase = "scanning";
   const size = backfillChunk.get(source.id) ?? 50_000n;
   const fromBlock = cursor - size + 1n > floor ? cursor - size + 1n : floor;
   const client = getPublicClient(getChainConfig(source.chain)!);
@@ -186,11 +192,16 @@ async function backfillSource(source: typeof sources[number]) {
       logs: await client.getLogs({ address: source.address, event, fromBlock, toBlock: cursor }) as unknown[],
     })));
   } catch (error) {
-    if (isLogRangeLimitError(error) && size > 100n) { backfillChunk.set(source.id, size / 2n); return }
+    if (isLogRangeLimitError(error) && size > 100n) { backfillChunk.set(source.id, size / 2n); state.lastError = `range too large at ${size} blocks; halving`; return }
+    // Unknown errors (timeouts, result limits) also shrink the chunk, so one bad range cannot stall the backfill forever.
+    if (size > 100n) backfillChunk.set(source.id, size / 2n);
+    state.lastError = errorSummary(error).message;
     throw error;
   }
   await storeLogs(source, logsByType, fromBlock, cursor);
   await db.query("UPDATE chain_event_cursors SET last_block = $2, updated_at = now() WHERE source = $1", [key, (fromBlock - 1n).toString()]);
+  state.lastChunk = `${fromBlock}-${cursor} (${logsByType.reduce((n, l) => n + l.logs.length, 0)} events)`;
+  state.lastError = undefined;
 }
 
 export async function backfillStatus(chain: SlipwayChainId) {
@@ -202,7 +213,14 @@ export async function backfillStatus(chain: SlipwayChainId) {
   );
   const value = (suffix: string) => rows.rows.find((row) => row.source === `${source.id}:${suffix}`)?.last_block;
   const cursor = value("backfill"), floor = value("floor");
-  return { supported: true, complete: cursor != null && floor != null && BigInt(cursor) < BigInt(floor) };
+  const state = backfillState.get(source.id);
+  return {
+    supported: true,
+    complete: cursor != null && floor != null && BigInt(cursor) < BigInt(floor),
+    cursor: cursor ?? null, floor: floor ?? null,
+    chunk: (backfillChunk.get(source.id) ?? 50_000n).toString(),
+    phase: state?.phase ?? "not started", lastRunAt: state?.lastRunAt ?? null, lastChunk: state?.lastChunk ?? null, lastError: state?.lastError ?? null,
+  };
 }
 
 let started = false;
@@ -214,9 +232,16 @@ export function startEventIndexer() {
       for (const source of sources) {
         try {
           await scanSource(source);
+        } catch (error) {
+          const details = errorSummary(error);
+          console.error(JSON.stringify({ event: "event_indexer_error", ...details, source: source.id, chain: source.chain }));
+        }
+        try {
           await backfillSource(source);
         } catch (error) {
           const details = errorSummary(error);
+          const state = backfillState.get(source.id);
+          if (state) state.lastError = `${state.phase}: ${details.message}`;
           console.error(JSON.stringify({ event: "event_indexer_error", ...details, source: source.id, chain: source.chain,
             fromBlock: error && typeof error === "object" && "fromBlock" in error ? error.fromBlock : undefined,
             toBlock: error && typeof error === "object" && "toBlock" in error ? error.toBlock : undefined
