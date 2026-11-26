@@ -137,22 +137,45 @@ export function evmBuildMatches(build, { chain, wallet }) {
       && typeof payload.from === 'string' && payload.from.toLowerCase() === wallet.toLowerCase()))
 }
 
-export async function uploadTokenImage(endpoint, image, token) {
+function uploadWithProgress(url, token, body, onProgress) {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest()
+    xhr.open('POST', url)
+    xhr.withCredentials = false
+    xhr.timeout = 60_000
+    xhr.setRequestHeader('Content-Type', 'application/json')
+    xhr.setRequestHeader('Authorization', `Bearer ${token}`)
+    xhr.upload.onprogress = (event) => { if (event.lengthComputable) onProgress(Math.min(1, event.loaded / event.total)) }
+    xhr.onload = () => resolve(new Response(xhr.responseText, {
+      status: xhr.status,
+      headers: { 'Content-Type': xhr.getResponseHeader('Content-Type') || 'application/json' },
+    }))
+    xhr.ontimeout = () => reject(new Error('Image upload timed out. Try again.'))
+    xhr.onerror = () => reject(new Error('Could not reach Slipway image storage.'))
+    xhr.send(body)
+  })
+}
+
+export async function uploadTokenImage(endpoint, image, token, onProgress) {
   if (typeof image !== 'string' || !/^data:image\/(?:png|jpeg|gif|webp);base64,[A-Za-z0-9+/]+={0,2}$/.test(image)
     || image.length > 2_800_000) {
     throw new Error('Choose a PNG, JPG, GIF or WebP image up to 2 MB.')
   }
   if (typeof token !== 'string' || !/^[a-f0-9]{64}$/i.test(token)) throw new Error('Connect a wallet to upload a token image.')
   const root = apiRoot(endpoint)
-  const response = await fetch(apiUrl(root, 'v1/media/images'), {
-    method: 'POST',
-    credentials: 'omit',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-    body: JSON.stringify({ image }),
-    signal: AbortSignal.timeout(60_000),
-  }).catch((error) => {
-    throw new Error(error.name === 'TimeoutError' ? 'Image upload timed out. Try again.' : 'Could not reach Slipway image storage.')
-  })
+  const url = apiUrl(root, 'v1/media/images')
+  const body = JSON.stringify({ image })
+  const response = typeof onProgress === 'function' && typeof XMLHttpRequest === 'function'
+    ? await uploadWithProgress(url, token, body, onProgress)
+    : await fetch(url, {
+      method: 'POST',
+      credentials: 'omit',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body,
+      signal: AbortSignal.timeout(60_000),
+    }).catch((error) => {
+      throw new Error(error.name === 'TimeoutError' ? 'Image upload timed out. Try again.' : 'Could not reach Slipway image storage.')
+    })
   const result = await readJson(response)
   if (typeof result.url !== 'string' || !result.url.startsWith('https://res.cloudinary.com/')) {
     throw new Error('Image storage returned an invalid image URL.')

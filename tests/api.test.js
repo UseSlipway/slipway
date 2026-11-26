@@ -243,3 +243,42 @@ test('wallet workspace session signs a server challenge and keeps the bearer tok
   assert.deepEqual(JSON.parse(targets.at(-1).options.body), { drafts: [], watches: [] })
   assert.ok(targets.every(({ url }) => url.startsWith('https://service.example/v1/workspace')))
 })
+
+test('image uploads report progress through XMLHttpRequest when a callback is given', async (t) => {
+  const priorXhr = globalThis.XMLHttpRequest
+  t.after(() => { if (priorXhr === undefined) delete globalThis.XMLHttpRequest; else globalThis.XMLHttpRequest = priorXhr })
+  const sent = {}
+  globalThis.XMLHttpRequest = class {
+    constructor() { this.upload = {}; this.headers = {} }
+    open(method, url) { sent.method = method; sent.url = url }
+    setRequestHeader(name, value) { this.headers[name] = value }
+    getResponseHeader() { return 'application/json' }
+    send(body) {
+      sent.body = body; sent.headers = this.headers
+      this.upload.onprogress({ lengthComputable: true, loaded: 50, total: 100 })
+      this.upload.onprogress({ lengthComputable: true, loaded: 100, total: 100 })
+      this.status = 201
+      this.responseText = JSON.stringify({ url: 'https://res.cloudinary.com/demo/image/upload/token.png' })
+      this.onload()
+    }
+  }
+  const progress = []
+  const result = await uploadTokenImage('https://service.example', 'data:image/png;base64,iVBORw0KGgo=', 'c'.repeat(64), (p) => progress.push(p))
+  assert.equal(result.url, 'https://res.cloudinary.com/demo/image/upload/token.png')
+  assert.deepEqual(progress, [0.5, 1])
+  assert.equal(sent.method, 'POST')
+  assert.equal(new URL(sent.url).pathname, '/v1/media/images')
+  assert.equal(sent.headers.Authorization, `Bearer ${'c'.repeat(64)}`)
+  assert.equal(JSON.parse(sent.body).image, 'data:image/png;base64,iVBORw0KGgo=')
+})
+
+test('image upload errors from XMLHttpRequest surface the service message', async (t) => {
+  const priorXhr = globalThis.XMLHttpRequest
+  t.after(() => { if (priorXhr === undefined) delete globalThis.XMLHttpRequest; else globalThis.XMLHttpRequest = priorXhr })
+  globalThis.XMLHttpRequest = class {
+    constructor() { this.upload = {} }
+    open() {} setRequestHeader() {} getResponseHeader() { return 'application/json' }
+    send() { this.status = 429; this.responseText = JSON.stringify({ error: 'Image upload limit reached. Try again later.' }); this.onload() }
+  }
+  await assert.rejects(uploadTokenImage('https://service.example', 'data:image/png;base64,iVBORw0KGgo=', 'c'.repeat(64), () => {}), (error) => error.status === 429 && /limit reached/.test(error.message))
+})
