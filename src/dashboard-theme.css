@@ -58,3 +58,44 @@ body[data-dashboard-theme=dark] .site-header.on-dashboard:not(.menu-open),body[d
 body[data-dashboard-theme=dark] .site-header.on-dashboard:not(.menu-open) .menu-toggle{background:#35202d;color:#f8ecdc}
 @media(max-width:599px){.dash-controls .theme-toggle{flex:0 0 auto;padding-inline:12px}.dash-controls select{flex:1 1 130px}.dash-controls .button{flex:1 1 140px}.dashboard .dash-controls{justify-content:flex-start}}
 @media(prefers-reduced-transparency:reduce){.dashboard[data-theme=dark] .g3{--surface:#2b1724}.dashboard[data-theme=dark] .workspace-panel,.dashboard[data-theme=dark] .search-input{background:#2b1724}}
+.dashboard .ws-identity{display:flex;align-items:center;gap:14px;margin-top:20px;padding:14px 18px;border:1px solid var(--line);border-radius:14px;background:#d8b5680f}
+.dashboard .ws-identity>div{flex:1;min-width:0}
+.dashboard .ws-identity strong{display:flex;align-items:center;gap:10px;font-size:13px}
+.dashboard .ws-identity em{font-style:normal;font-size:10px;letter-spacing:.06em;text-transform:uppercase;padding:3px 8px;border-radius:20px;border:1px solid var(--line);color:#8a6a2e}
+.dashboard[data-theme=dark] .ws-identity em{color:#e7c596}
+.dashboard .ws-identity p{margin:4px 0 0;font-size:12px;line-height:1.5;opacity:.75}
+.dashboard .ws-identity .ws-identity-switch{opacity:1;color:#8a5a1c}
+.dashboard[data-theme=dark] .ws-identity .ws-identity-switch{color:#f2dba8}
+.dashboard .ws-identity-switch button{font-size:12px;text-decoration:underline;margin-left:6px;color:inherit}
+.dashboard .ws-identity-dot{width:9px;height:9px;border-radius:50%;flex:none;background:#a39289}
+.dashboard .ws-identity.is-synced .ws-identity-dot{background:#4f9d69}
+.dashboard .ws-identity.is-pending .ws-identity-dot{background:#d8b568;animation:ws-blink 1.2s ease-in-out infinite}
+.dashboard .ws-identity.is-error .ws-identity-dot{background:#ba4949}
+.dashboard .ws-identity .button{flex:none}
+@keyframes ws-blink{50%{opacity:.35}}
+.dashboard .ws-panel{min-height:0}
+.dashboard .ws-panel+.ws-panel{margin-top:18px}
+.dashboard .ws-toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-top:24px}
+.dashboard .ws-count{font-size:12px;opacity:.7}
+.dashboard .ws-toolbar-controls{display:flex;gap:10px;flex-wrap:wrap}
+.dashboard .ws-select{display:flex;align-items:center;gap:8px;font-size:11px;opacity:.9}
+.dashboard .ws-select select{font-size:12px;padding:7px 28px 7px 12px}
+.dashboard .ws-table{margin-top:14px}
+.dashboard .ws-actions{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.dashboard .ws-actions button,.dashboard .ws-actions a{font-size:11px;color:inherit;text-decoration:underline;text-underline-offset:3px}
+.dashboard .watch-grid .ws-actions{margin-top:auto}
+.dashboard .watch-grid h3 small{font-size:12px;opacity:.6;font-weight:500}
+.dashboard .ws-more{display:block;margin:18px auto 0;padding:10px 18px;border:1px solid var(--line);border-radius:999px;font-size:12px}
+.dashboard .ws-more span{opacity:.6}
+.dashboard .ws-note,.dashboard .ws-loading{font-size:12px;opacity:.7;margin-top:16px}
+.dashboard .ws-empty{padding:44px 20px}
+.dashboard .ws-empty h3{font-size:20px}
+.dashboard .ws-hidden{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+.dashboard .ws-day{margin-top:22px}
+.dashboard .ws-day h4{font-size:11px;letter-spacing:.06em;text-transform:uppercase;opacity:.6;margin:0 0 8px}
+.dashboard .ws-day ol{list-style:none;margin:0;padding:0;border-top:1px solid var(--line)}
+.dashboard .ws-day li{display:grid;grid-template-columns:56px minmax(0,1fr) auto auto;gap:12px;align-items:center;padding:11px 2px;border-bottom:1px solid var(--line);font-size:13px}
+.dashboard .ws-day time{font-family:var(--mono);font-size:11px;opacity:.6}
+.dashboard .ws-day em{font-style:normal;font-size:10px;padding:3px 8px;border-radius:20px;border:1px solid var(--line);opacity:.8}
+.dashboard .ws-day a{font-size:11px;color:inherit}
+@media(max-width:599px){.dashboard .ws-identity{flex-wrap:wrap}.dashboard .ws-identity .button{width:100%}.dashboard .ws-day li{grid-template-columns:48px minmax(0,1fr);row-gap:4px}.dashboard .ws-day em,.dashboard .ws-day a{grid-column:2;justify-self:start}.dashboard .ws-toolbar{align-items:flex-start;flex-direction:column}}
