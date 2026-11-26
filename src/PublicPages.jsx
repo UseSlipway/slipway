@@ -19,6 +19,16 @@ const phases=[
  ]},
 ];
 
+
+const updates=[
+ {type:'Product',title:'A clearer market view',copy:'Search and filter supported markets, inspect chart freshness and availability, and open watchlist actions from token and pool views.',links:[['Explore markets','/dashboard']]},
+ {type:'Product',title:'A smoother launch workspace',copy:'Follow the launch steps, see image requirements and upload progress, resume drafts, and find your token address and transaction after confirmation.',links:[['Open the workspace','/dashboard']]},
+ {type:'Product',title:'Better trade preparation',copy:'See your input balance and live quote, then compare what you pay, expected and minimum output, route, fees and slippage before building a transaction.',links:[['Review a trade','/dashboard']]},
+ {type:'Product',title:'A wallet workspace for active users',copy:'Sort, filter and page through launches, drafts and watched tokens. Wallet ownership and sync state are clearer, and activity is grouped into a readable timeline.',links:[['View the workspace','/dashboard']]},
+ {type:'Product',title:'Clearer trading status',copy:'The trade page now reports that trading is available through the restricted routers and keeps the legacy-approval reminder separate from live status.',links:[['Open trading','/dashboard']]},
+ {type:'Maintenance',title:'Faster, lighter pages',copy:'Below-the-fold imagery loads on demand, key images are smaller, market responses are briefly reused, and platform videos are deferred on mobile, reduced-motion and data-saver settings.',links:[['Visit the landing page','/'],['Explore the platform','/platform']]},
+];
+
 function PageHero({label,title,copy,aside}){return <header className="public-hero"><span className="eyebrow">{label}</span><h1>{title}</h1><p>{copy}</p>{aside&&<span className="public-hero-aside">{aside}</span>}</header>}
 
 function Whitepaper(){return <main className="public-page whitepaper-page"><PageHero label="SLIPWAY · WHITEPAPER" title={<>Open execution.<br/><em>Your wallet signs.</em></>} copy="Slipway is an interface and execution layer for launching, discovering and trading onchain tokens across supported networks." aside="VERSION 1.0 · NOVEMBER 2026"/>
@@ -38,4 +48,6 @@ function Roadmap(){return <main className="public-page roadmap-page"><PageHero l
  <section className="paper-outro"><span className="eyebrow">READ THE THESIS</span><h2>Preparation can be open.<br/>Signing stays yours.</h2><p>See how Slipway connects token discovery, launch and trading workflows.</p><Link to="/whitepaper" className="button">Read the whitepaper <Icon name="arrow"/></Link></section>
  <Footer/></main>}
 
-export default function PublicPages({type}){return type==='roadmap'?<Roadmap/>:<Whitepaper/>}
+function Updates(){return <main className="public-page updates-page"><PageHero label="SLIPWAY · PRODUCT UPDATES" title={<>What shipped.<br/><em>What changed.</em></>} copy="A dated record of improvements to Slipway’s site and dapp. Each note links to the place you can try it."/><section className="updates-release" aria-labelledby="updates-release-title"><header className="updates-release-heading"><time dateTime="2026-11-26">November 26, 2026</time><h2 id="updates-release-title">Product and interface updates</h2></header><ol className="updates-list">{updates.map((item,index)=><li key={item.title}><article><header><span className={'updates-type '+(item.type==='Maintenance'?'is-maintenance':'')}>{item.type}</span><span className="updates-index">0{index+1}</span></header><h3>{item.title}</h3><p>{item.copy}</p><div className="updates-links">{item.links.map(([label,to])=><Link key={to+label} to={to}>{label}<Icon name="arrow"/></Link>)}</div></article></li>)}</ol></section><section className="updates-note"><span className="eyebrow">RELEASE NOTES</span><p>These notes describe completed, user-visible or maintenance changes. Planned work appears on the <Link to="/roadmap">roadmap</Link>.</p></section><Footer/></main>}
+
+export default function PublicPages({type}){return type==='roadmap'?<Roadmap/>:type==='updates'?<Updates/>:<Whitepaper/>}
