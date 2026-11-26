@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { db } from "../db/index";
+import { backfillStatus } from "../events/indexer";
 
 export const eventRouter = Router();
 const eventTypes = new Set(["token.launched", "pool.graduated", "pool.initialized"]);
@@ -29,7 +30,7 @@ eventRouter.get("/", async (request, response) => {
   try {
     const values: unknown[] = [afterRaw];
     let sql = `SELECT id, chain, event_type AS "type", payload, block_number AS "blockNumber",
-      block_hash AS "blockHash", transaction_hash AS "transactionHash", log_index AS "logIndex", created_at AS "indexedAt"
+      block_hash AS "blockHash", transaction_hash AS "transactionHash", log_index AS "logIndex", coalesce(occurred_at, created_at) AS "indexedAt", occurred_at AS "occurredAt"
       FROM chain_events WHERE id > $1`;
     if (chain) { values.push(chain); sql += ` AND chain = $${values.length}`; }
     if (types.length) { values.push(types); sql += ` AND event_type = ANY($${values.length}::text[])`; }
@@ -43,7 +44,8 @@ eventRouter.get("/", async (request, response) => {
     values.push(Number(limitRaw));
     // Wallet views default to newest first; `order` lets other feeds (such as recent graduations) ask for it too.
     const descending = order ? order === "desc" : Boolean(wallet);
-    sql += ` ORDER BY id ${descending ? "DESC" : "ASC"} LIMIT $${values.length}`;
+    // Newest-first views sort by block, so backfilled history never jumps ahead of recent events.
+    sql += descending ? ` ORDER BY block_number DESC, log_index DESC LIMIT $${values.length}` : ` ORDER BY id ASC LIMIT $${values.length}`;
     const result = await db.query(sql, values);
     response.setHeader("Cache-Control", "no-store").json({ events: result.rows, nextCursor: result.rows.at(-1)?.id ?? Number(afterRaw) });
   } catch {
@@ -63,16 +65,17 @@ eventRouter.get("/creator", async (request, response) => {
     return;
   }
   try {
-    const since = await db.query<{ since: Date | null }>("SELECT min(created_at) AS since FROM chain_events WHERE chain = $1 AND event_type = 'token.launched'", [chain]);
+    const since = await db.query<{ since: Date | null }>("SELECT min(coalesce(occurred_at, created_at)) AS since FROM chain_events WHERE chain = $1 AND event_type = 'token.launched'", [chain]);
     const indexedSince = since.rows[0]?.since ?? null;
+    const history = await backfillStatus(chain).catch(() => ({ supported: false, complete: false }));
     const launch = await db.query<{ creator: string | null; at: Date }>(
-      `SELECT ${creatorExpr} AS creator, created_at AS at FROM chain_events
+      `SELECT ${creatorExpr} AS creator, coalesce(occurred_at, created_at) AS at FROM chain_events
        WHERE chain = $1 AND event_type = 'token.launched' AND ${tokenExpr} = $2 ORDER BY id ASC LIMIT 1`,
       [chain, token.toLowerCase()],
     );
     const creator = launch.rows[0]?.creator;
     if (!creator || !/^0x[a-f0-9]{40}$/.test(creator)) {
-      response.setHeader("Cache-Control", "public, max-age=60").json({ found: false, chain, token: token.toLowerCase(), indexedSince });
+      response.setHeader("Cache-Control", "public, max-age=60").json({ found: false, chain, token: token.toLowerCase(), indexedSince, history });
       return;
     }
     const launches = await db.query<{ token: string; at: Date; graduated: boolean }>(
@@ -81,9 +84,9 @@ eventRouter.get("/creator", async (request, response) => {
            AND lower(coalesce(g.payload->'args'->>'token', g.payload->'args'->>'tokenAddress')) = l.token
        ) AS graduated
        FROM (
-         SELECT ${tokenExpr} AS token, created_at AS at FROM chain_events
+         SELECT ${tokenExpr} AS token, coalesce(occurred_at, created_at) AS at FROM chain_events
          WHERE chain = $1 AND event_type = 'token.launched' AND ${creatorExpr} = $2
-         ORDER BY id DESC LIMIT 500
+         ORDER BY block_number DESC LIMIT 500
        ) l`,
       [chain, creator],
     );
@@ -102,6 +105,7 @@ eventRouter.get("/creator", async (request, response) => {
       recent: rows.slice(0, 8).map((row) => ({ token: row.token, at: row.at, graduated: row.graduated })),
       capped: launches.rows.length >= 500,
       indexedSince,
+      history,
     });
   } catch {
     response.status(503).json({ error: "Creator history is temporarily unavailable" });

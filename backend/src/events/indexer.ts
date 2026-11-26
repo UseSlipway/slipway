@@ -89,18 +89,120 @@ async function scanSource(source: typeof sources[number]) {
     type,
     logs: await getLogsWithRangeFallback(source, event, fromBlock, toBlock),
   })));
+  await storeLogs(source, logsByType, fromBlock, toBlock);
+  await db.query("UPDATE chain_event_cursors SET last_block = $2, updated_at = now() WHERE source = $1", [source.id, toBlock.toString()]);
+}
+
+// Block time for each log, so history shows when events happened rather than when they were indexed.
+// Reads the two chunk boundaries and interpolates; Robinhood Chain and Base produce blocks at a steady pace.
+async function blockTimer(source: typeof sources[number], fromBlock: bigint, toBlock: bigint) {
+  const client = getPublicClient(getChainConfig(source.chain)!);
+  try {
+    const [from, to] = await Promise.all([client.getBlock({ blockNumber: fromBlock }), client.getBlock({ blockNumber: toBlock })]);
+    const span = Number(toBlock - fromBlock) || 1;
+    return (block: bigint | null | undefined) => {
+      if (block == null) return null;
+      const share = Number(block - fromBlock) / span;
+      return new Date((Number(from.timestamp) + share * (Number(to.timestamp) - Number(from.timestamp))) * 1000).toISOString();
+    };
+  } catch {
+    return () => null;
+  }
+}
+
+async function storeLogs(source: typeof sources[number], logsByType: Array<{ type: string; logs: unknown[] }>, fromBlock: bigint, toBlock: bigint) {
+  if (!logsByType.some(({ logs }) => logs.length)) return;
+  const timeOf = await blockTimer(source, fromBlock, toBlock);
   for (const { type, logs } of logsByType) {
     for (const log of logs as Log[]) {
       const payload = jsonSafe({ event: type, address: log.address, args: "args" in log ? log.args : undefined, topics: log.topics, data: log.data, blockNumber: log.blockNumber, transactionHash: log.transactionHash, logIndex: log.logIndex });
       const id = `${source.chain}:${log.transactionHash}:${log.logIndex}`;
       await db.query(
-        `INSERT INTO chain_events (event_id, chain, event_type, payload, block_number, block_hash, transaction_hash, log_index)
-         VALUES ($1, $2, $3, $4::jsonb, $5, $6, $7, $8) ON CONFLICT (event_id) DO NOTHING`,
-        [id, source.chain, type, JSON.stringify(payload), log.blockNumber?.toString(), log.blockHash, log.transactionHash, log.logIndex]
+        `INSERT INTO chain_events (event_id, chain, event_type, payload, block_number, block_hash, transaction_hash, log_index, occurred_at)
+         VALUES ($1, $2, $3, $4::jsonb, $5, $6, $7, $8, $9)
+         ON CONFLICT (event_id) DO UPDATE SET occurred_at = coalesce(chain_events.occurred_at, EXCLUDED.occurred_at)`,
+        [id, source.chain, type, JSON.stringify(payload), log.blockNumber?.toString(), log.blockHash, log.transactionHash, log.logIndex, timeOf(log.blockNumber)]
       );
     }
   }
-  await db.query("UPDATE chain_event_cursors SET last_block = $2, updated_at = now() WHERE source = $1", [source.id, toBlock.toString()]);
+}
+
+// Historical backfill: walk backwards from where live indexing began to the factory's deployment
+// block, one chunk per poll, so creator history and graduations cover every launch ever made.
+// Only Pons on Robinhood Chain is backfilled; Clanker on Base launches far too many tokens to store.
+const backfillSources = new Set(["pons-v2-rhc"]);
+const backfillChunk = new Map<string, bigint>();
+async function findDeploymentBlock(source: typeof sources[number], head: bigint) {
+  const configured = process.env[`BACKFILL_FLOOR_${source.id.replaceAll("-", "_").toUpperCase()}`];
+  if (configured && /^\d+$/.test(configured)) return BigInt(configured);
+  const client = getPublicClient(getChainConfig(source.chain)!);
+  try {
+    let lo = 0n, hi = head;
+    while (lo < hi) {
+      const mid = (lo + hi) / 2n;
+      const code = await client.getCode({ address: source.address, blockNumber: mid });
+      if (code && code !== "0x") hi = mid; else lo = mid + 1n;
+    }
+    return lo;
+  } catch {
+    return 0n; // No archive state: scan back to genesis instead. Slower, still correct.
+  }
+}
+
+async function backfillSource(source: typeof sources[number]) {
+  if (!backfillSources.has(source.id)) return;
+  const key = `${source.id}:backfill`;
+  const existing = await db.query<{ last_block: string }>("SELECT last_block FROM chain_event_cursors WHERE source = $1", [key]);
+  const floorRow = await db.query<{ last_block: string }>("SELECT last_block FROM chain_event_cursors WHERE source = $1", [`${source.id}:floor`]);
+  let floor: bigint;
+  if (floorRow.rows[0]) floor = BigInt(floorRow.rows[0].last_block);
+  else {
+    const client = getPublicClient(getChainConfig(source.chain)!);
+    floor = await findDeploymentBlock(source, await client.getBlockNumber());
+    await db.query("INSERT INTO chain_event_cursors (source, chain, last_block) VALUES ($1, $2, $3) ON CONFLICT (source) DO NOTHING", [`${source.id}:floor`, source.chain, floor.toString()]);
+  }
+  let cursor: bigint;
+  if (existing.rows[0]) cursor = BigInt(existing.rows[0].last_block);
+  else {
+    // Start just below the first block live indexing covered for this factory.
+    const live = await db.query<{ first: string | null }>(
+      "SELECT min(block_number)::text AS first FROM chain_events WHERE chain = $1 AND lower(payload->>'address') = $2",
+      [source.chain, source.address.toLowerCase()],
+    );
+    const forward = await db.query<{ last_block: string }>("SELECT last_block FROM chain_event_cursors WHERE source = $1", [source.id]);
+    const start = live.rows[0]?.first ? BigInt(live.rows[0].first) : forward.rows[0] ? BigInt(forward.rows[0].last_block) : null;
+    if (start == null) return;
+    cursor = start - 1n;
+    await db.query("INSERT INTO chain_event_cursors (source, chain, last_block) VALUES ($1, $2, $3) ON CONFLICT (source) DO NOTHING", [key, source.chain, cursor.toString()]);
+  }
+  if (cursor < floor) return; // Complete.
+  const size = backfillChunk.get(source.id) ?? 50_000n;
+  const fromBlock = cursor - size + 1n > floor ? cursor - size + 1n : floor;
+  const client = getPublicClient(getChainConfig(source.chain)!);
+  let logsByType;
+  try {
+    logsByType = await Promise.all(source.events.map(async ({ event, type }) => ({
+      type,
+      logs: await client.getLogs({ address: source.address, event, fromBlock, toBlock: cursor }) as unknown[],
+    })));
+  } catch (error) {
+    if (isLogRangeLimitError(error) && size > 100n) { backfillChunk.set(source.id, size / 2n); return }
+    throw error;
+  }
+  await storeLogs(source, logsByType, fromBlock, cursor);
+  await db.query("UPDATE chain_event_cursors SET last_block = $2, updated_at = now() WHERE source = $1", [key, (fromBlock - 1n).toString()]);
+}
+
+export async function backfillStatus(chain: SlipwayChainId) {
+  const source = sources.find((s) => s.chain === chain && backfillSources.has(s.id));
+  if (!source) return { supported: false, complete: false };
+  const rows = await db.query<{ source: string; last_block: string }>(
+    "SELECT source, last_block FROM chain_event_cursors WHERE source = ANY($1::text[])",
+    [[`${source.id}:backfill`, `${source.id}:floor`]],
+  );
+  const value = (suffix: string) => rows.rows.find((row) => row.source === `${source.id}:${suffix}`)?.last_block;
+  const cursor = value("backfill"), floor = value("floor");
+  return { supported: true, complete: cursor != null && floor != null && BigInt(cursor) < BigInt(floor) };
 }
 
 let started = false;
@@ -112,6 +214,7 @@ export function startEventIndexer() {
       for (const source of sources) {
         try {
           await scanSource(source);
+          await backfillSource(source);
         } catch (error) {
           const details = errorSummary(error);
           console.error(JSON.stringify({ event: "event_indexer_error", ...details, source: source.id, chain: source.chain,

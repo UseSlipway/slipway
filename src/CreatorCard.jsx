@@ -58,7 +58,11 @@ export default function CreatorCard({ item, endpoint }) {
     <h3 id="creator-card-title">Creator</h3>
     {state.status === 'loading' ? <p className="creator-muted" role="status">Looking up who launched this token…</p>
       : state.status === 'error' ? <p className="creator-muted" role="status">Creator history is unavailable right now.{state.retrying ? ' Retrying…' : ''}</p>
-        : state.status === 'unknown' ? <p className="creator-muted">Slipway hasn't indexed this token's launch{since ? ` (indexing started ${since})` : ''}. Tokens launched earlier, or outside Pons and Clanker, have no creator history here.</p>
+        : state.status === 'unknown' ? <p className="creator-muted">{data.history?.supported && !data.history.complete
+          ? <>Slipway is still loading the full Pons launch history{since ? ` (now back to ${since})` : ''}. This token's creator appears here as soon as its launch is reached. Check back shortly.</>
+          : data.history?.supported
+            ? <>No Pons launch record for this token, so it was created outside the Pons launchpad and has no launchpad creator history.</>
+            : <>No Clanker launch record for this token since Slipway began indexing Base{since ? ` on ${since}` : ''}. Older Base launches, or tokens created outside Clanker, have no creator history here.</>}</p>
           : <>
             <p className="creator-address">
               <a href={`${explorers[chain]}/address/${data.creator}`} target="_blank" rel="noreferrer">{short(data.creator)} ↗</a>
@@ -78,7 +82,7 @@ export default function CreatorCard({ item, endpoint }) {
                 {r.graduated && <b className="graduated-chip">Graduated</b>}
               </li>)}</ul>
             </>}
-            <p className="creator-muted">From launches Slipway has indexed{since ? ` since ${since}` : ''}. History only, not a safety rating.</p>
+            <p className="creator-muted">{data.history?.complete ? 'Full Pons launch history.' : `From launches Slipway has indexed${since ? ` since ${since}` : ''}${data.history?.supported ? '; older history is still loading' : ''}.`} History only, not a safety rating.</p>
           </>}
   </section>;
 }
