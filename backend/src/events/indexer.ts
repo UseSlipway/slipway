@@ -1,4 +1,4 @@
-import { getAddress, parseAbiItem, type Address, type Log } from "viem";
+import { createPublicClient, defineChain, getAddress, http, parseAbiItem, type Address, type Log, type PublicClient } from "viem";
 import { getChainConfig, getPublicClient, type SlipwayChainId } from "../chains/config";
 import { db } from "../db/index";
 import { scanLegacyRouterActivity } from "./legacyRouterMonitor";
@@ -95,8 +95,7 @@ async function scanSource(source: typeof sources[number]) {
 
 // Block time for each log, so history shows when events happened rather than when they were indexed.
 // Reads the two chunk boundaries and interpolates; Robinhood Chain and Base produce blocks at a steady pace.
-async function blockTimer(source: typeof sources[number], fromBlock: bigint, toBlock: bigint) {
-  const client = getPublicClient(getChainConfig(source.chain)!);
+async function blockTimer(source: typeof sources[number], fromBlock: bigint, toBlock: bigint, client: PublicClient = getPublicClient(getChainConfig(source.chain)!)) {
   try {
     const [from, to] = await Promise.all([client.getBlock({ blockNumber: fromBlock }), client.getBlock({ blockNumber: toBlock })]);
     const span = Number(toBlock - fromBlock) || 1;
@@ -110,9 +109,9 @@ async function blockTimer(source: typeof sources[number], fromBlock: bigint, toB
   }
 }
 
-async function storeLogs(source: typeof sources[number], logsByType: Array<{ type: string; logs: unknown[] }>, fromBlock: bigint, toBlock: bigint) {
+async function storeLogs(source: typeof sources[number], logsByType: Array<{ type: string; logs: unknown[] }>, fromBlock: bigint, toBlock: bigint, client?: PublicClient) {
   if (!logsByType.some(({ logs }) => logs.length)) return;
-  const timeOf = await blockTimer(source, fromBlock, toBlock);
+  const timeOf = await blockTimer(source, fromBlock, toBlock, client);
   for (const { type, logs } of logsByType) {
     for (const log of logs as Log[]) {
       const payload = jsonSafe({ event: type, address: log.address, args: "args" in log ? log.args : undefined, topics: log.topics, data: log.data, blockNumber: log.blockNumber, transactionHash: log.transactionHash, logIndex: log.logIndex });
@@ -132,6 +131,25 @@ async function storeLogs(source: typeof sources[number], logsByType: Array<{ typ
 // Only Pons on Robinhood Chain is backfilled; Clanker on Base launches far too many tokens to store.
 const backfillSources = new Set(["pons-v2-rhc"]);
 const backfillChunk = new Map<string, bigint>();
+// The live indexer's RPC provider caps eth_getLogs at about 100 blocks, which would take weeks to
+// walk back through history. The backfill uses its own RPC (Robinhood Chain's public endpoint by
+// default, overridable with BACKFILL_RPC_URL_RHC) and falls back to the main client if that fails.
+const backfillRpcDefaults: Partial<Record<SlipwayChainId, string>> = { rhc: "https://rpc.mainnet.chain.robinhood.com" };
+const backfillClients = new Map<SlipwayChainId, PublicClient>();
+function backfillClient(chain: SlipwayChainId): PublicClient {
+  const url = process.env[`BACKFILL_RPC_URL_${chain.toUpperCase()}`]?.trim() || backfillRpcDefaults[chain];
+  if (!url) return getPublicClient(getChainConfig(chain)!);
+  const cached = backfillClients.get(chain);
+  if (cached) return cached;
+  const config = getChainConfig(chain)!;
+  const client = createPublicClient({
+    chain: defineChain({ id: config.chainId, name: config.name, nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 }, rpcUrls: { default: { http: [url] } } }),
+    transport: http(url, { timeout: 30_000, retryCount: 1 }),
+  });
+  backfillClients.set(chain, client);
+  return client;
+}
+const backfillUsesFallback = new Set<string>();
 const backfillState = new Map<string, { phase: string; lastError?: string; lastRunAt?: string; lastChunk?: string }>();
 async function findDeploymentBlock(source: typeof sources[number], head: bigint) {
   const configured = process.env[`BACKFILL_FLOOR_${source.id.replaceAll("-", "_").toUpperCase()}`];
@@ -184,7 +202,7 @@ async function backfillSource(source: typeof sources[number]) {
   state.phase = "scanning";
   const size = backfillChunk.get(source.id) ?? 50_000n;
   const fromBlock = cursor - size + 1n > floor ? cursor - size + 1n : floor;
-  const client = getPublicClient(getChainConfig(source.chain)!);
+  const client = backfillUsesFallback.has(source.id) ? getPublicClient(getChainConfig(source.chain)!) : backfillClient(source.chain);
   let logsByType;
   try {
     logsByType = await Promise.all(source.events.map(async ({ event, type }) => ({
@@ -192,13 +210,15 @@ async function backfillSource(source: typeof sources[number]) {
       logs: await client.getLogs({ address: source.address, event, fromBlock, toBlock: cursor }) as unknown[],
     })));
   } catch (error) {
+    // If the dedicated backfill RPC is unreachable or refuses even small ranges, use the main client.
+    if (!backfillUsesFallback.has(source.id) && size <= 1_000n) { backfillUsesFallback.add(source.id); backfillChunk.set(source.id, 100n); state.lastError = `backfill RPC unavailable; using main RPC: ${errorSummary(error).message}`; return }
     if (isLogRangeLimitError(error) && size > 100n) { backfillChunk.set(source.id, size / 2n); state.lastError = `range too large at ${size} blocks; halving`; return }
     // Unknown errors (timeouts, result limits) also shrink the chunk, so one bad range cannot stall the backfill forever.
     if (size > 100n) backfillChunk.set(source.id, size / 2n);
     state.lastError = errorSummary(error).message;
     throw error;
   }
-  await storeLogs(source, logsByType, fromBlock, cursor);
+  await storeLogs(source, logsByType, fromBlock, cursor, client);
   await db.query("UPDATE chain_event_cursors SET last_block = $2, updated_at = now() WHERE source = $1", [key, (fromBlock - 1n).toString()]);
   state.lastChunk = `${fromBlock}-${cursor} (${logsByType.reduce((n, l) => n + l.logs.length, 0)} events)`;
   state.lastError = undefined;
@@ -219,6 +239,7 @@ export async function backfillStatus(chain: SlipwayChainId) {
     complete: cursor != null && floor != null && BigInt(cursor) < BigInt(floor),
     cursor: cursor ?? null, floor: floor ?? null,
     chunk: (backfillChunk.get(source.id) ?? 50_000n).toString(),
+    rpc: backfillUsesFallback.has(source.id) ? "main" : "backfill",
     phase: state?.phase ?? "not started", lastRunAt: state?.lastRunAt ?? null, lastChunk: state?.lastChunk ?? null, lastError: state?.lastError ?? null,
   };
 }
