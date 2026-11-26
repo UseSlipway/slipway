@@ -101,7 +101,7 @@ export default function GraduatedFeed({ endpoint, onSelect, onGraduated }) {
               const symbol = item.row?.symbol || item.meta?.symbol || '';
               const when = item.at ? timeAgo(item.at, now) : '';
               const body = <>
-                <span className="market-trend-image"><TokenIcon item={item.row || { symbol, image: '' }} /></span>
+                <span className="market-trend-image"><TokenIcon item={item.row || { symbol, image: /^https:\/\//.test(item.meta?.image_url || '') ? item.meta.image_url : '' }} /></span>
                 <span className="market-trend-name">{name}{symbol && <small> ${symbol}</small>}</span>
                 <span className="graduated-chip">Graduated{when && ` · ${when}`}</span>
                 {item.row ? <span><b>{money(item.row.fdv ?? item.row.cap)}</b> <small className="market-tiny">FDV · {money(item.row.volume)} 24h vol</small></span>

@@ -67,6 +67,10 @@ test('proxy allows the bounded market data routes', async (t) => {
   await handler({ url: '/api/slipway?path=v1%2Fmarket%2Fnetworks%2Fbase%2Fpools%2F0x1234567890123456789012345678901234567890%2Fohlcv%2Fhour&aggregate=1', method: 'GET', headers: {} }, res)
   assert.equal(res.statusCode, 200)
   assert.equal(target, 'https://backend.example/v1/market/networks/base/pools/0x1234567890123456789012345678901234567890/ohlcv/hour?aggregate=1')
+  const v4 = mockResponse()
+  await handler({ url: '/api/slipway?path=v1%2Fmarket%2Fnetworks%2Frobinhood%2Fpools%2F0xe7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7', method: 'GET', headers: {} }, v4)
+  assert.equal(v4.statusCode, 200)
+  assert.equal(target, 'https://backend.example/v1/market/networks/robinhood/pools/0xe7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7')
 })
 
 test('proxy allows multi-token market lookups and rejects malformed ones', async (t) => {

@@ -12,7 +12,8 @@ export function setMarketFetcher(fetcher?: MarketFetch) {
   marketFetch = fetcher ?? defaultMarketFetch;
 }
 const networkPattern = "(?:robinhood|base)";
-const poolPattern = "[A-Za-z0-9]{32,64}";
+// v2/v3 pools are 20-byte addresses; Uniswap v4 pools (e.g. graduated Pons tokens) are 32-byte ids, "0x" + 64 hex.
+const poolPattern = "[A-Za-z0-9]{32,66}";
 const addressList = "0x[a-fA-F0-9]{40}(?:,0x[a-fA-F0-9]{40}){0,29}";
 const routes = [
   new RegExp(`^/networks/trending_pools$`),

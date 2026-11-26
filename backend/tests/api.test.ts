@@ -142,6 +142,8 @@ describe("backend API surface", () => {
       const ok = await apiFetch(`${origin}/v1/market/networks/robinhood/tokens/multi/${a},${b}?include=top_pools`);
       expect(ok.status, await ok.clone().text()).toBe(200);
       expect(requested).toBe(`https://api.geckoterminal.com/api/v2/networks/robinhood/tokens/multi/${a},${b}?include=top_pools`);
+      const v4Pool = await apiFetch(`${origin}/v1/market/networks/robinhood/pools/0xe7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7?include=base_token%2Cquote_token`);
+      expect(v4Pool.status, await v4Pool.clone().text()).toBe(200);
       const badInclude = await apiFetch(`${origin}/v1/market/networks/robinhood/tokens/multi/${a}?include=base_token,quote_token`);
       const badAddress = await apiFetch(`${origin}/v1/market/networks/robinhood/tokens/multi/not-an-address`);
       const tooMany = await apiFetch(`${origin}/v1/market/networks/robinhood/tokens/multi/${Array(31).fill(a).join(",")}`);
