@@ -69,6 +69,32 @@ test('proxy allows the bounded market data routes', async (t) => {
   assert.equal(target, 'https://backend.example/v1/market/networks/base/pools/0x1234567890123456789012345678901234567890/ohlcv/hour?aggregate=1')
 })
 
+test('proxy allows multi-token market lookups and rejects malformed ones', async (t) => {
+  const originalFetch = globalThis.fetch
+  const originalUrl = process.env.SLIPWAY_API_URL
+  process.env.SLIPWAY_API_URL = 'https://backend.example'
+  t.after(() => {
+    globalThis.fetch = originalFetch
+    if (originalUrl === undefined) delete process.env.SLIPWAY_API_URL
+    else process.env.SLIPWAY_API_URL = originalUrl
+  })
+  let target
+  globalThis.fetch = async (url) => {
+    target = String(url)
+    return new Response(JSON.stringify({ data: [] }), { status: 200 })
+  }
+  const a = '0x' + 'a'.repeat(40), b = '0x' + 'b'.repeat(40)
+  const res = mockResponse()
+  await handler({ url: `/api/slipway?path=${encodeURIComponent(`v1/market/networks/robinhood/tokens/multi/${a},${b}`)}&include=top_pools`, method: 'GET', headers: {} }, res)
+  assert.equal(res.statusCode, 200)
+  assert.equal(target, `https://backend.example/v1/market/networks/robinhood/tokens/multi/${a},${b}?include=top_pools`)
+  target = undefined
+  const bad = mockResponse()
+  await handler({ url: `/api/slipway?path=${encodeURIComponent('v1/market/networks/robinhood/tokens/multi/not-an-address')}`, method: 'GET', headers: {} }, bad)
+  assert.notEqual(bad.statusCode, 200)
+  assert.equal(target, undefined)
+})
+
 test('proxy allows transaction submission and hash status routes', async (t) => {
   const originalFetch = globalThis.fetch
   const originalUrl = process.env.SLIPWAY_API_URL

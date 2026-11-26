@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { getEvents } from './api';
+import { getEvents, resolveToken } from './api';
 import { fetchJSON, money, unpack, TokenIcon } from './MarketBoard';
 
 const explorer = 'https://robinhoodchain.blockscout.com';
@@ -68,7 +68,11 @@ export default function GraduatedFeed({ endpoint, onSelect, onGraduated }) {
           } catch (error) { if (error.name === 'AbortError') return }
         }
         if (!active) return;
-        const items = graduations.map(g => ({ ...g, ...markets.get(g.token.toLowerCase()) }));
+        let items = graduations.map(g => ({ ...g, ...markets.get(g.token.toLowerCase()) }));
+        // Without market data, still name the token from Slipway's own resolver.
+        items = await Promise.all(items.map(async item => item.row || item.meta?.name ? item
+          : { ...item, meta: await resolveToken(endpoint, 'Robinhood Chain', item.token).then(r => ({ name: r.name, symbol: r.symbol })).catch(() => null) }));
+        if (!active) return;
         setState({ status: items.length ? 'ready' : 'empty', items, checked: Date.now(), partial: graduations.length > 0 && markets.size === 0 });
         onGraduated?.(new Set(graduations.map(g => g.token.toLowerCase())));
       } catch (error) {
