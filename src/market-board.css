@@ -38,3 +38,33 @@
 .recent-trades-more{display:block;margin:16px auto 0;padding:9px 18px;border:1px solid var(--line);border-radius:999px;font-size:12px}
 .recent-trades-more span{color:var(--muted)}
 @media(max-width:599px){.recent-trades-row{grid-template-columns:62px 38px minmax(0,1fr) minmax(0,1fr);font-size:12px}.recent-trades-row>:nth-child(5),.recent-trades-row>:nth-child(6){display:none}.recent-trades-head{align-items:flex-start}}
+.price-chart{position:relative;outline:none;cursor:crosshair;touch-action:pan-y}
+.price-chart:focus-visible{outline:2px solid #bc8c3b;outline-offset:4px;border-radius:8px}
+.price-volume.is-up{fill:#53a86955}
+.price-volume.is-down{fill:#d5745555}
+.price-last{stroke:var(--muted);stroke-width:1;stroke-dasharray:3 4}
+.price-last-tag{fill:var(--ink)}
+.price-last-text{font-size:10px;font-weight:700;fill:var(--bg)}
+.price-crosshair line{stroke:var(--ink);stroke-width:1;stroke-dasharray:2 3;opacity:.55}
+.price-event line{stroke-width:1.2;stroke-dasharray:4 4}
+.price-event text{font-size:10px;font-weight:700}
+.price-event.is-graduated line{stroke:#4f9d69}
+.price-event.is-graduated text{fill:#3d8a57}
+.price-event.is-pool line{stroke:#b58e48}
+.price-event.is-pool text{fill:#9a7330}
+.price-trade.is-buy{fill:#2f9a55;stroke:var(--bg);stroke-width:1}
+.price-trade.is-sell{fill:#c9553a;stroke:var(--bg);stroke-width:1}
+.price-tooltip{position:absolute;top:0;transform:translateY(-4px);display:flex;flex-wrap:wrap;gap:4px 10px;max-width:min(380px,90%);padding:8px 11px;border-radius:10px;background:var(--panel);border:1px solid var(--line);box-shadow:0 8px 22px #0002;font-size:11px;color:var(--muted);pointer-events:none;z-index:2}
+.price-tooltip time{width:100%;color:var(--ink);font-weight:650}
+.price-tooltip b{color:var(--ink);font-weight:650;font-variant-numeric:tabular-nums}
+.price-tooltip em{font-style:normal;font-weight:700;width:100%}
+.price-tooltip em.is-graduated{color:#3d8a57}
+.price-tooltip em.is-buy{color:#2f9a55}
+.price-tooltip em.is-sell{color:#c9553a}
+.price-tooltip em.is-pool{color:#9a7330}
+.price-offscreen{position:absolute;right:0;bottom:-22px;font-size:11px;color:var(--muted);margin:0}
+.price-marker-toggle{height:35px;padding:0 12px;border-radius:999px;border:1px solid var(--line);background:var(--soft);font-size:12px}
+.price-marker-toggle[aria-pressed=true]{border-color:var(--accent)}
+.price-marker-toggle span{color:var(--muted)}
+.lp[data-theme=dark] .price-event.is-graduated text{fill:#9fdcb3}
+.lp[data-theme=dark] .price-event.is-pool text{fill:#e7c596}
