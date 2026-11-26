@@ -357,6 +357,22 @@ export async function getEvents(endpoint, { after = 0, chain, types, wallet, lim
   return readJson(response)
 }
 
+export async function getPonsProgress(endpoint, tokens, signal) {
+  if (!Array.isArray(tokens) || tokens.length < 1 || tokens.length > 24
+    || tokens.some((token) => typeof token !== 'string' || !/^0x[a-fA-F0-9]{40}$/.test(token))) {
+    throw new Error('Provide up to 24 valid Pons token addresses.')
+  }
+  const query = new URLSearchParams({ tokens: [...new Set(tokens.map((token) => token.toLowerCase()))].join(',') })
+  const response = await fetch(apiUrl(apiRoot(endpoint), 'v1/pons/progress', query.toString()), {
+    method: 'GET', credentials: 'omit', headers: { Accept: 'application/json' },
+    signal: signal || AbortSignal.timeout(15_000),
+  }).catch((error) => {
+    if (error.name === 'AbortError') throw error
+    throw new Error(error.name === 'TimeoutError' ? 'Pons progress took too long to respond.' : 'Could not reach Pons graduation progress.')
+  })
+  return readJson(response)
+}
+
 export async function resolveToken(endpoint, chain, address) {
   if (!Object.hasOwn(chainIds, chain) || !isTokenAddress(address, chain)) {
     throw new Error('Enter a valid public token address for the selected chain.')

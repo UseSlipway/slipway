@@ -2,6 +2,12 @@
 
 Notable project changes are recorded here. Contract deployments and audit follow-ups are linked to the technical records in `technical-docs/` and `contracts/deployments/`.
 
+## 2026-11-27 — Pons graduation progress
+
+- Added cached, read-only progress for active Pons bonding curves, measured against each token's onchain graduation threshold.
+- Added progress bars on launch cards, market rows, and token pages, plus a Near graduation market sort.
+- Progress is read from the Pons factory and curve contracts and cached in Postgres; no contract changes.
+
 ## 2026-11-27 — Live new launches
 
 - Added a newest-first feed for Pons launches on Robinhood Chain and Clanker launches on Base, with creator and launch age details.

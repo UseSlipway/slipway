@@ -21,6 +21,7 @@ const phases=[
 
 
 const updates=[
+ {type:'Product',title:'Pons graduation progress',copy:'See how much native or token quote liquidity an active Pons launch has raised against its graduation threshold. Progress appears on launch cards and token pages, and markets can be sorted by those closest to graduation.',links:[['Explore markets','/dashboard']]},
  {type:'Product',title:'Live new launches',copy:'Follow the latest Pons launches on Robinhood Chain and Clanker launches on Base, see their creators and launch age, and open any token directly in the trade view. Recent pool trades appear when the market provider has indexed them.',links:[['Explore new launches','/dashboard']]},
  {type:'Product',title:'A clearer market view',copy:'Search and filter supported markets, inspect chart freshness and availability, and open watchlist actions from token and pool views.',links:[['Explore markets','/dashboard']]},
  {type:'Product',title:'A smoother launch workspace',copy:'Follow the launch steps, see image requirements and upload progress, resume drafts, and find your token address and transaction after confirmation.',links:[['Open the workspace','/dashboard']]},

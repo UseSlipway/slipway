@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { chainIds, checkBackend, getEvents, getPoolTrades, getTransactionStatus, isTokenAddress, evmBuildMatches, launchChainIds, launchQuoteMatches, launchQuoteRequest, marketRequest, createWorkspaceSession, getCloudWorkspace, putCloudWorkspace, quoteRequest, formatTokenAmount, request, resolveToken, submitBuiltTransactions, submitTransaction, uploadTokenImage } from '../src/api.js'
+import { chainIds, checkBackend, getEvents, getPonsProgress, getPoolTrades, getTransactionStatus, isTokenAddress, evmBuildMatches, launchChainIds, launchQuoteMatches, launchQuoteRequest, marketRequest, createWorkspaceSession, getCloudWorkspace, putCloudWorkspace, quoteRequest, formatTokenAmount, request, resolveToken, submitBuiltTransactions, submitTransaction, uploadTokenImage } from '../src/api.js'
 
 const address = '0x000000000000000000000000000000000000dead'
 
@@ -211,6 +211,18 @@ test('pool trades use the shared cached market proxy and validate chain and pool
   assert.equal(target.pathname, `/v1/market/networks/base/pools/${pool}/trades`)
   assert.equal(target.search, '')
   await assert.rejects(getPoolTrades('https://service.example', 'solana', pool), /supported pool/)
+})
+
+test('Pons progress requests batch valid token addresses through the API', async (t) => {
+  const originalFetch = globalThis.fetch
+  t.after(() => { globalThis.fetch = originalFetch })
+  let target
+  globalThis.fetch = async (url) => { target = new URL(String(url)); return new Response(JSON.stringify({ items: [] }), { status: 200 }) }
+  const token = '0x' + 'a'.repeat(40)
+  assert.deepEqual(await getPonsProgress('https://service.example', [token, token]), { items: [] })
+  assert.equal(target.pathname, '/v1/pons/progress')
+  assert.equal(target.searchParams.get('tokens'), token)
+  await assert.rejects(getPonsProgress('https://service.example', ['invalid']), /Pons token addresses/)
 })
 
 test('token resolution encodes the address and validates response fields', async (t) => {

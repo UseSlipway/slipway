@@ -333,4 +333,13 @@ describe("backend API surface", () => {
     expect(badWallet.status).toBe(400);
     expect(badOrder.status).toBe(400);
   });
+
+  test("validates Pons progress token batches before RPC access", async () => {
+    const missing = await apiFetch(`${origin}/v1/pons/progress`);
+    const malformed = await apiFetch(`${origin}/v1/pons/progress?tokens=not-an-address`);
+    const tooMany = await apiFetch(`${origin}/v1/pons/progress?tokens=${Array.from({ length: 25 }, (_, i) => `0x${String(i).padStart(40, "a")}`).join(",")}`);
+    expect(missing.status).toBe(400);
+    expect(malformed.status).toBe(400);
+    expect(tooMany.status).toBe(400);
+  });
 });

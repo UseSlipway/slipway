@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { getEvents, getPoolTrades, marketRequest, resolveToken } from './api';
+import { getEvents, getPoolTrades, getPonsProgress, marketRequest, resolveToken } from './api';
+import PonsProgress from './PonsProgress';
 
 const addressPattern = /^0x[a-fA-F0-9]{40}$/;
 const zero = '0x0000000000000000000000000000000000000000';
@@ -106,6 +107,8 @@ export default function NewLaunchFeed({ endpoint, onOpenTrade, showHeading = tru
         })),
         base.length ? marketRequest(endpoint, `networks/base/tokens/multi/${base.map(row => row.token).join(',')}?include=top_pools`).then(poolsForTokens).catch(() => new Map()) : Promise.resolve(new Map())
       ]);
+      const ponsProgress = pons.length ? getPonsProgress(endpoint, pons.map(row => row.token).slice(0, 24)).then(json => new Map((json.items || []).map(value => [value.token.toLowerCase(), value]))).catch(() => new Map()) : Promise.resolve(new Map());
+      const progress = await ponsProgress;
       if (!active || seq !== enrichRef.current) return;
       const routes = new Map(ponsMetadata);
       const next = rows.map(row => {
@@ -116,7 +119,8 @@ export default function NewLaunchFeed({ endpoint, onOpenTrade, showHeading = tru
           name: row.name === short(row.token) ? route?.name || row.name : row.name,
           symbol: row.symbol === 'TOKEN' ? route?.symbol || row.symbol : row.symbol,
           pair: row.pair === 'Token' ? route?.quoteAsset || row.pair : row.pair,
-          pool: market?.pool || null
+          pool: market?.pool || null,
+          progress: progress.get(row.token.toLowerCase()) || null
         };
       });
       // Keep GeckoTerminal traffic bounded: at most two fresh Base pools are queried per refresh.
@@ -153,6 +157,7 @@ export default function NewLaunchFeed({ endpoint, onOpenTrade, showHeading = tru
                   <span className="new-launch-meta"><span>{item.venue}</span><span>{item.chain}</span><span>{age || 'Recently indexed'}</span></span>
                   <span className="new-launch-pair">Pair · {item.pair}</span>
                 </button>
+                {item.progress && <PonsProgress value={item.progress} compact/>}
                 <span className="new-launch-creator">Creator <a href={`${explorer(item.network === 'base' ? 'base' : 'rhc')}/address/${item.creator || item.token}`} target="_blank" rel="noreferrer">{short(item.creator)}</a></span>
                 {item.trades.length > 0 && <span className="new-launch-trades" aria-label="Recent trades">{item.trades.map((trade, index) => <a href={`${explorer(item.network)}/tx/${trade.hash}`} target="_blank" rel="noreferrer" key={`${trade.hash}-${index}`}><b>{trade.kind}</b> {trade.usd == null ? '' : `$${trade.usd.toFixed(2)}`} · {short(trade.wallet)}</a>)}</span>}
                 {item.pool && item.trades.length === 0 && <span className="new-launch-trades-empty">No recent trades reported yet</span>}

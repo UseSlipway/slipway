@@ -10,6 +10,7 @@ const routes = [
   { method: 'GET', pattern: /^v1\/transactions\/(rhc|base)\/0x[a-fA-F0-9]{64}$/ },
   { method: 'GET', pattern: /^v1\/events$/ },
   { method: 'GET', pattern: /^v1\/events\/creator$/ },
+  { method: 'GET', pattern: /^v1\/pons\/progress$/ },
   { method: 'GET', pattern: /^v1\/trending$/ },
   { method: 'GET', pattern: /^v1\/workspace\/?$/ },
   { method: 'PUT', pattern: /^v1\/workspace\/?$/ },
