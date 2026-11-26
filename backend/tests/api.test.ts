@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import type { AddressInfo } from "node:net";
 import { app } from "../src/app";
-import { setMarketFetcher } from "../src/routes/market";
+import { setMarketFetcher, resetMarketBudget, setMarketBudgetEnforcedForTests } from "../src/routes/market";
 
 describe("backend API surface", () => {
   let server: ReturnType<typeof app.listen>;
@@ -174,6 +174,52 @@ describe("backend API surface", () => {
       expect(badValue.status).toBe(400);
     } finally {
       setMarketFetcher();
+    }
+  });
+
+  test("stops calling the provider after a 429 and answers busy instead", async () => {
+    let calls = 0;
+    resetMarketBudget();
+    setMarketBudgetEnforcedForTests(true);
+    setMarketFetcher(async () => {
+      calls += 1;
+      return new Response(JSON.stringify({ status: { error_code: 429 } }), { status: 429, headers: { "content-type": "application/json", "retry-after": "60" } });
+    });
+    try {
+      const pool = `0x${"1".repeat(40)}`;
+      const first = await apiFetch(`${origin}/v1/market/networks/base/pools/${pool}/ohlcv/hour?aggregate=1&limit=10`);
+      const second = await apiFetch(`${origin}/v1/market/networks/base/pools/${pool}/ohlcv/day?aggregate=1&limit=10`);
+      expect(first.status).toBe(503);
+      expect(second.status).toBe(503);
+      expect(second.headers.get("retry-after")).toBe("30");
+      expect(calls).toBe(1);
+    } finally {
+      setMarketFetcher();
+      setMarketBudgetEnforcedForTests(false);
+      resetMarketBudget();
+    }
+  });
+
+  test("limits upstream calls per minute", async () => {
+    let calls = 0;
+    resetMarketBudget();
+    setMarketBudgetEnforcedForTests(true);
+    setMarketFetcher(async () => {
+      calls += 1;
+      return new Response(JSON.stringify({ data: [] }), { status: 200, headers: { "content-type": "application/json" } });
+    });
+    try {
+      const statuses = [];
+      for (let i = 0; i < 26; i += 1) {
+        const pool = `0x${i.toString(16).padStart(40, "0")}`;
+        statuses.push((await apiFetch(`${origin}/v1/market/networks/base/pools/${pool}`)).status);
+      }
+      expect(calls).toBe(24);
+      expect(statuses.filter((s) => s === 503).length).toBe(2);
+    } finally {
+      setMarketFetcher();
+      setMarketBudgetEnforcedForTests(false);
+      resetMarketBudget();
     }
   });
 

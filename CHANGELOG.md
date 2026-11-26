@@ -14,8 +14,9 @@ Site and dapp only; no contract changes. Release notes are also published at htt
 - **Wallet workspace for active users:** wallet ownership and sync status, a notice when the connected wallet changes, sorting, filtering and paging for launches, drafts and watched tokens, and a day-grouped activity timeline that includes onchain launches.
 - **Clearer trading status:** the trade page reports availability through the restricted routers and keeps the legacy-approval reminder separate.
 - **Just graduated feed:** the market board shows Pons tokens whose bonding curve just filled and moved into a Uniswap pool on Robinhood Chain, newest first, with FDV and 24h volume; graduated tokens carry a badge in the pool list.
-- **Recent trades on the token page:** the last 24 hours of buys and sells for the pool with value, amount, price, wallet and transaction links; filters for side, minimum size and your own trades; a buy/sell summary with unique traders. Refreshes every 20 seconds.
+- **Recent trades on the token page:** the last 24 hours of buys and sells for the pool with value, amount, price, wallet and transaction links; filters for side, minimum size and your own trades; a buy/sell summary with unique traders. Refreshes every 45 seconds.
 - **Chart upgrades:** volume bars, a current-price line, a hover or keyboard crosshair with open, high, low, close, change and volume, and markers for graduation, pool creation and the connected wallet's own buys and sells, with a toggle. The chart no longer blanks while it refreshes.
+- **Market data reliability:** the server now spends at most 24 GeckoTerminal requests a minute, gives live visitors priority over background refreshes, only refreshes data someone viewed in the last two minutes, and pauses after a rate-limit response while serving cached data. Charts keep their last candles and retry automatically when the provider is busy.
 - **Landing and mobile polish:** a tighter first visit, better narrow-screen layouts for the dashboard, launch and trade views, and clearer live event feed states.
 
 ### Maintenance

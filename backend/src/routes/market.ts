@@ -7,6 +7,27 @@ type MarketFetch = (input: RequestInfo | URL, init?: RequestInit) => Promise<Res
 const defaultMarketFetch: MarketFetch = (...args) => globalThis.fetch(...args);
 let marketFetch: MarketFetch = defaultMarketFetch;
 let marketFetcherOverridden = false;
+
+// GeckoTerminal's public API allows roughly 30 calls a minute for the whole server, shared by every
+// visitor. Spend at most MARKET_UPSTREAM_PER_MINUTE (default 24) per rolling minute, keep a reserve
+// for live requests that have no cached copy, and pause upstream calls after a 429.
+const upstreamPerMinute = Math.max(1, Number(process.env.MARKET_UPSTREAM_PER_MINUTE) || 24);
+const backgroundReserve = Math.ceil(upstreamPerMinute / 2);
+const upstreamCalls: number[] = [];
+let upstreamCooldownUntil = 0;
+const recentlyRequested = new Map<string, number>();
+type Priority = "live" | "background";
+function takeUpstreamSlot(priority: Priority, now = Date.now()) {
+  if (now < upstreamCooldownUntil) return false;
+  while (upstreamCalls.length && now - upstreamCalls[0]! >= 60_000) upstreamCalls.shift();
+  const limit = priority === "live" ? upstreamPerMinute : upstreamPerMinute - backgroundReserve;
+  if (upstreamCalls.length >= limit) return false;
+  upstreamCalls.push(now);
+  return true;
+}
+let enforceBudgetInTests = false;
+export function setMarketBudgetEnforcedForTests(value: boolean) { enforceBudgetInTests = value }
+export function resetMarketBudget() { upstreamCalls.length = 0; upstreamCooldownUntil = 0; recentlyRequested.clear() }
 export function setMarketFetcher(fetcher?: MarketFetch) {
   marketFetcherOverridden = Boolean(fetcher);
   marketFetch = fetcher ?? defaultMarketFetch;
@@ -39,9 +60,10 @@ function cacheKey(path: string, params: URLSearchParams) {
 function ttlFor(path: string) {
   if (path === "/search/pools") return 120_000;
   if (path.includes("/ohlcv/")) return 60_000;
-  if (path.endsWith("/trades")) return 15_000;
+  if (path.endsWith("/trades")) return 45_000;
+  if (path.includes("/tokens/multi/")) return 120_000;
   if (path.endsWith("/trending_pools")) return 60_000;
-  return 30_000;
+  return 60_000;
 }
 
 async function database(): Promise<Db | null> {
@@ -65,15 +87,21 @@ async function readCache(key: string): Promise<CachedResponse | null> {
   }
 }
 
-async function fetchAndCache(key: string, target: URL): Promise<CachedResponse | null> {
+async function fetchAndCache(key: string, target: URL, priority: Priority = "live"): Promise<CachedResponse | null> {
   const active = refreshes.get(key);
   if (active) return active;
+  if ((!marketFetcherOverridden || enforceBudgetInTests) && !takeUpstreamSlot(priority)) return null;
   const job = (async () => {
     try {
       const result = await marketFetch(target, {
         headers: { accept: "application/json;version=20230203" },
         signal: AbortSignal.timeout(10_000),
       });
+      if (result.status === 429) {
+        const retryAfter = Number(result.headers.get("retry-after"));
+        upstreamCooldownUntil = Date.now() + (Number.isFinite(retryAfter) && retryAfter > 0 ? Math.min(retryAfter, 300) * 1000 : 60_000);
+        return null;
+      }
       const body = await result.text();
       if (body.length > 2_000_000) return null;
       const value: CachedResponse = {
@@ -151,6 +179,7 @@ marketRouter.get("/*path", async (request, response) => {
   }
 
   const key = cacheKey(path, params);
+  recentlyRequested.set(key, Date.now());
   const cached = marketFetcherOverridden ? null : await readCache(key);
   const fresh = cached && Date.now() - cached.fetchedAt.getTime() < ttlFor(path);
   const target = new URL(`${upstream}${path}`);
@@ -163,7 +192,7 @@ marketRouter.get("/*path", async (request, response) => {
     // Serve the last good response immediately. A shared background refresh
     // updates Postgres for the next request without making the UI wait.
     sendCached(response, cached, "STALE");
-    void fetchAndCache(key, target);
+    void fetchAndCache(key, target, "background");
     return;
   }
 
@@ -172,7 +201,8 @@ marketRouter.get("/*path", async (request, response) => {
     sendCached(response, result, "MISS");
     return;
   }
-  response.status(503).json({ error: "Market data is temporarily unavailable" });
+  response.setHeader("Retry-After", "30");
+  response.status(503).json({ error: "Market data is busy. Retrying shortly." });
 });
 
 export function startMarketCacheRefresh(intervalMs = 30_000) {
@@ -188,12 +218,15 @@ export function startMarketCacheRefresh(intervalMs = 30_000) {
                 AND cache_key NOT LIKE '/search/%' AND fetched_at < now() - interval '25 seconds')
          ORDER BY fetched_at ASC LIMIT 5`,
       );
+      for (const [key, at] of recentlyRequested) if (Date.now() - at > 10 * 60_000) recentlyRequested.delete(key);
       for (const row of rows.rows) {
+        // Only keep entries fresh that someone viewed in the last two minutes.
+        if (Date.now() - (recentlyRequested.get(row.cache_key) ?? 0) > 2 * 60_000) continue;
         const [path, query = ""] = row.cache_key.split("?");
         const params = new URLSearchParams(query);
         const target = new URL(`${upstream}${path}`);
         target.search = params.toString();
-        await fetchAndCache(row.cache_key, target);
+        await fetchAndCache(row.cache_key, target, "background");
       }
       if (Date.now() - lastCacheCleanupAt > 60 * 60_000) {
         await db.query("DELETE FROM market_response_cache WHERE fetched_at < now() - interval '7 days'");

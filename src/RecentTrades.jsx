@@ -63,7 +63,7 @@ export default function RecentTrades({ item, endpoint, wallet }) {
     setState({ status: 'loading', rows: [] });
     setLimit(pageSize);
     load();
-    const timer = setInterval(() => { if (!document.hidden) load() }, 20000);
+    const timer = setInterval(() => { if (!document.hidden) load() }, 45000);
     const tick = setInterval(() => setNow(Date.now()), 15000);
     return () => { active = false; controller?.abort(); clearInterval(timer); clearInterval(tick) };
   }, [item?.network, item?.pool, item?.token, endpoint, minUsd]);
@@ -90,8 +90,8 @@ export default function RecentTrades({ item, endpoint, wallet }) {
       {summary.buyUsd + summary.sellUsd > 0 && <span className="recent-trades-ratio" aria-hidden="true"><i style={{ width: `${(summary.buyUsd / (summary.buyUsd + summary.sellUsd)) * 100}%` }} /></span>}
     </div>}
     {state.status === 'loading' ? <div className="market-loading" role="status">Loading recent trades…</div>
-      : state.status === 'error' ? <div className="market-empty-state" role="status"><strong>Trades are temporarily unavailable</strong><span>The market provider did not respond. This retries every 20 seconds.</span></div>
-        : !filtered.length ? <div className="market-empty-state"><strong>{mine ? 'No trades from your wallet here' : state.rows.length ? 'No trades match these filters' : 'No trades in the last 24 hours'}</strong><span>{mine ? 'Trades you make on this pool show up here, highlighted.' : state.rows.length ? 'Try another side or a smaller minimum size.' : minUsd ? 'Try a smaller minimum size.' : 'This pool has been quiet. New trades appear here within about 20 seconds.'}</span></div>
+      : state.status === 'error' ? <div className="market-empty-state" role="status"><strong>Trades are temporarily unavailable</strong><span>The market provider did not respond. This retries every 45 seconds.</span></div>
+        : !filtered.length ? <div className="market-empty-state"><strong>{mine ? 'No trades from your wallet here' : state.rows.length ? 'No trades match these filters' : 'No trades in the last 24 hours'}</strong><span>{mine ? 'Trades you make on this pool show up here, highlighted.' : state.rows.length ? 'Try another side or a smaller minimum size.' : minUsd ? 'Try a smaller minimum size.' : 'This pool has been quiet. New trades appear here within about a minute.'}</span></div>
           : <>
             <div className="recent-trades-table" role="table" aria-label="Recent trades">
               <div className="recent-trades-row is-head" role="row"><span role="columnheader">Time</span><span role="columnheader">Type</span><span role="columnheader">Value</span><span role="columnheader">{item.symbol}</span><span role="columnheader">Price</span><span role="columnheader">Wallet</span></div>
@@ -109,6 +109,6 @@ export default function RecentTrades({ item, endpoint, wallet }) {
             </div>
             {filtered.length > limit && <button type="button" className="recent-trades-more" onClick={() => setLimit(l => l + pageSize)}>Show more <span>({shown.length} of {filtered.length})</span></button>}
           </>}
-    <p className="market-source">Trades from GeckoTerminal, refreshed every 20 seconds{state.checked ? `, checked ${new Date(state.checked).toLocaleTimeString()}` : ''}{state.stale ? ' · last refresh failed, showing earlier data' : ''}. Up to 300 trades from the last 24 hours. Flagged trades are excluded from the summary.</p>
+    <p className="market-source">Trades from GeckoTerminal, refreshed every 45 seconds{state.checked ? `, checked ${new Date(state.checked).toLocaleTimeString()}` : ''}{state.stale ? ' · last refresh failed, showing earlier data' : ''}. Up to 300 trades from the last 24 hours. Flagged trades are excluded from the summary.</p>
   </section>;
 }
