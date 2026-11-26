@@ -21,6 +21,7 @@ const routes = [
   /^\/search\/pools$/,
   new RegExp(`^/networks/${networkPattern}/pools/${poolPattern}$`),
   new RegExp(`^/networks/${networkPattern}/pools/${poolPattern}/ohlcv/(minute|hour|day)$`),
+  new RegExp(`^/networks/${networkPattern}/pools/${poolPattern}/trades$`),
   new RegExp(`^/networks/${networkPattern}/tokens/multi/${addressList}$`),
 ];
 
@@ -38,6 +39,7 @@ function cacheKey(path: string, params: URLSearchParams) {
 function ttlFor(path: string) {
   if (path === "/search/pools") return 120_000;
   if (path.includes("/ohlcv/")) return 60_000;
+  if (path.endsWith("/trades")) return 15_000;
   if (path.endsWith("/trending_pools")) return 60_000;
   return 30_000;
 }
@@ -115,7 +117,9 @@ function validQuery(path: string, params: URLSearchParams): boolean {
       ? new Set(["include", "page", "duration", "sort"])
       : path.includes("/ohlcv/")
         ? new Set(["aggregate", "limit", "currency", "token", "before_timestamp"])
-        : new Set(["include"]);
+        : path.endsWith("/trades")
+          ? new Set(["trade_volume_in_usd_greater_than"])
+          : new Set(["include"]);
   if ([...params.keys()].some((key) => !allowed.has(key))) return false;
   const include = params.get("include");
   if (include && include !== (path.includes("/tokens/multi/") ? "top_pools" : "base_token,quote_token")) return false;
@@ -127,6 +131,8 @@ function validQuery(path: string, params: URLSearchParams): boolean {
     const value = params.get(key);
     if (value && (!/^\d{1,12}$/.test(value) || Number(value) <= 0)) return false;
   }
+  const minUsd = params.get("trade_volume_in_usd_greater_than");
+  if (minUsd !== null && (!/^\d{1,9}$/.test(minUsd) || Number(minUsd) > 1_000_000)) return false;
   if (params.has("aggregate") && Number(params.get("aggregate")) > 1440) return false;
   if (params.has("limit") && Number(params.get("limit")) > 1000) return false;
   if (params.has("currency") && !["usd", "token"].includes(params.get("currency")!)) return false;

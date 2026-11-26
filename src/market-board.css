@@ -13,3 +13,28 @@
 .graduated-card{text-decoration:none;color:inherit}
 .graduated-card .market-trend-name small{color:var(--muted)}
 .graduated-empty{min-height:120px}
+.recent-trades{margin-top:34px}
+.recent-trades-head{display:flex;align-items:flex-end;justify-content:space-between;gap:14px;flex-wrap:wrap}
+.recent-trades-head h2{font-size:21px}
+.recent-trades-head p{font-size:12px;color:var(--muted);margin-top:4px}
+.recent-trades-controls{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.recent-trades-controls select{font-size:12px;padding:7px 30px 7px 12px}
+.recent-trades-mine{height:37px;padding:0 14px;border-radius:999px;border:1px solid var(--line);background:var(--soft);font-size:12px}
+.recent-trades-mine.is-on{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.recent-trades-summary{display:flex;align-items:center;gap:8px 18px;flex-wrap:wrap;margin-top:16px;font-size:12px;color:var(--muted)}
+.recent-trades-summary b{color:var(--ink);font-weight:700}
+.recent-trades-summary b.market-positive,.recent-trades-summary b.market-negative{color:inherit}
+.recent-trades-ratio{flex:1 1 120px;min-width:120px;height:6px;border-radius:6px;background:#ba494955;overflow:hidden}
+.recent-trades-ratio i{display:block;height:100%;background:#4f9d69}
+.recent-trades-table{margin-top:14px;border-top:1px solid var(--line);font-size:12.5px}
+.recent-trades-row{display:grid;grid-template-columns:78px 46px minmax(70px,1fr) minmax(80px,1fr) minmax(80px,1fr) 104px;gap:10px;align-items:center;padding:9px 6px;border-bottom:1px solid var(--line);font-variant-numeric:tabular-nums}
+.recent-trades-row.is-head{color:var(--muted);font-size:11px;padding-block:8px}
+.recent-trades-row a{color:inherit;text-decoration:none}
+.recent-trades-row a:hover{text-decoration:underline}
+.recent-trades-row.is-mine{background:color-mix(in srgb,var(--accent) 16%,transparent);border-radius:8px}
+.recent-trades-row.is-anomalous{opacity:.55}
+.recent-trades-row small{color:var(--muted)}
+.recent-trades-you{color:var(--ink)}
+.recent-trades-more{display:block;margin:16px auto 0;padding:9px 18px;border:1px solid var(--line);border-radius:999px;font-size:12px}
+.recent-trades-more span{color:var(--muted)}
+@media(max-width:599px){.recent-trades-row{grid-template-columns:62px 38px minmax(0,1fr) minmax(0,1fr);font-size:12px}.recent-trades-row>:nth-child(5),.recent-trades-row>:nth-child(6){display:none}.recent-trades-head{align-items:flex-start}}

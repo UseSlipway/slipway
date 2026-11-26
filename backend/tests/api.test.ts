@@ -155,6 +155,28 @@ describe("backend API surface", () => {
     }
   });
 
+  test("proxies pool trades with only a bounded size filter", async () => {
+    let requested = "";
+    setMarketFetcher(async (input) => {
+      requested = String(input);
+      return new Response(JSON.stringify({ data: [] }), { status: 200, headers: { "content-type": "application/json" } });
+    });
+    try {
+      const pool = "0xe7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7";
+      const ok = await apiFetch(`${origin}/v1/market/networks/robinhood/pools/${pool}/trades?trade_volume_in_usd_greater_than=100`);
+      expect(ok.status, await ok.clone().text()).toBe(200);
+      expect(requested).toBe(`https://api.geckoterminal.com/api/v2/networks/robinhood/pools/${pool}/trades?trade_volume_in_usd_greater_than=100`);
+      const plain = await apiFetch(`${origin}/v1/market/networks/base/pools/${pool}/trades`);
+      expect(plain.status).toBe(200);
+      const badParam = await apiFetch(`${origin}/v1/market/networks/robinhood/pools/${pool}/trades?include=base_token`);
+      const badValue = await apiFetch(`${origin}/v1/market/networks/robinhood/pools/${pool}/trades?trade_volume_in_usd_greater_than=-5`);
+      expect(badParam.status).toBe(400);
+      expect(badValue.status).toBe(400);
+    } finally {
+      setMarketFetcher();
+    }
+  });
+
   test("rejects arbitrary market routes and upstream query parameters", async () => {
     const unknown = await apiFetch(`${origin}/v1/market/proxy/https://example.com`);
     const unsafeQuery = await apiFetch(`${origin}/v1/market/search/pools?query=token&url=https://example.com`);

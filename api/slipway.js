@@ -3,7 +3,7 @@ const routes = [
   { method: 'GET', pattern: /^v1\/$/ },
   { method: 'GET', pattern: /^v1\/x402\/supported$/ },
   { method: 'GET', pattern: /^v1\/tokens\/(rhc|base)\/[A-Za-z0-9]+$/ },
-  { method: 'GET', pattern: /^v1\/market\/(networks(\/(robinhood|base))?\/trending_pools|search\/pools|networks\/(robinhood|base)\/pools\/[A-Za-z0-9]{32,66}(\/ohlcv\/(minute|hour|day))?)$/ },
+  { method: 'GET', pattern: /^v1\/market\/(networks(\/(robinhood|base))?\/trending_pools|search\/pools|networks\/(robinhood|base)\/pools\/[A-Za-z0-9]{32,66}(\/ohlcv\/(minute|hour|day)|\/trades)?)$/ },
   { method: 'GET', pattern: /^v1\/market\/networks\/(robinhood|base)\/tokens\/multi\/0x[a-fA-F0-9]{40}(,0x[a-fA-F0-9]{40}){0,29}$/ },
   { method: 'POST', pattern: /^v1\/transactions\/submit$/ },
   { method: 'POST', pattern: /^v1\/media\/images$/ },
