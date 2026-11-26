@@ -13,6 +13,7 @@ import { launchRouter } from "./routes/launches";
 import { x402Router } from "./routes/x402";
 import { workspaceRouter } from "./routes/workspace";
 import { mediaRouter } from "./routes/media";
+import { publicApiRouter } from "./routes/publicApi";
 
 export const app = express();
 app.disable("x-powered-by");
@@ -36,7 +37,7 @@ app.use((request, response, next) => {
 app.use("/health", healthRouter);
 app.use((request, response, next) => {
   const pathname = new URL(request.originalUrl, "http://localhost").pathname;
-  if (pathname === "/health" || pathname === "/health/") return next();
+  if (pathname === "/health" || pathname === "/health/" || pathname === "/public/v1" || pathname.startsWith("/public/v1/")) return next();
   const configured = process.env.SERVER_API_KEY;
   if (!configured) {
     response.status(503).json({ error: "API authentication is not configured" });
@@ -96,6 +97,7 @@ app.use("/v1/transactions", transactionRouter);
 app.use("/v1/events", eventRouter);
 app.use("/v1", launchRouter);
 app.use("/v1/x402", x402Router);
+app.use("/public/v1", publicApiRouter);
 
 app.use((error: unknown, request: express.Request, response: express.Response, _next: express.NextFunction) => {
   console.error(JSON.stringify({

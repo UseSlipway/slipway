@@ -411,3 +411,31 @@ export async function putCloudWorkspace(endpoint, token, { drafts, watches }) {
 export async function revokeWorkspaceSession(endpoint, token) {
   return workspaceRequest(endpoint, 'POST', token, undefined, '/revoke')
 }
+
+async function developerKeyRequest(endpoint, method, token, body, id = '') {
+  if (typeof token !== 'string' || !/^[a-f0-9]{64}$/i.test(token)) throw new Error('Sign with your wallet to manage API keys.')
+  const root = apiRoot(endpoint)
+  const response = await fetch(apiUrl(root, `v1/workspace/api-keys${id ? `/${encodeURIComponent(id)}` : ''}`), {
+    method,
+    credentials: 'omit',
+    cache: 'no-store',
+    headers: { Accept: 'application/json', Authorization: `Bearer ${token}`, ...(body ? { 'Content-Type': 'application/json' } : {}) },
+    ...(body ? { body: JSON.stringify(body) } : {}),
+    signal: AbortSignal.timeout(15_000),
+  }).catch((error) => {
+    throw new Error(error.name === 'TimeoutError' ? 'API key request timed out.' : 'Could not reach the Slipway API key service.')
+  })
+  return readJson(response)
+}
+
+export async function listDeveloperApiKeys(endpoint, token) {
+  return developerKeyRequest(endpoint, 'GET', token)
+}
+
+export async function createDeveloperApiKey(endpoint, token, name) {
+  return developerKeyRequest(endpoint, 'POST', token, { name })
+}
+
+export async function revokeDeveloperApiKey(endpoint, token, id) {
+  return developerKeyRequest(endpoint, 'DELETE', token, undefined, id)
+}

@@ -1,4 +1,4 @@
-import { createHash, randomBytes } from "node:crypto";
+import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { Router, type Request, type Response, type NextFunction } from "express";
 import { getAddress, isAddress, verifyMessage } from "viem";
 import { db } from "../db/index";
@@ -137,6 +137,71 @@ workspaceRouter.post("/revoke", requireWorkspaceSession, async (request, respons
 });
 
 workspaceRouter.use(requireWorkspaceSession);
+workspaceRouter.get("/api-keys", async (_request, response) => {
+  const wallet = response.locals.walletAddress as string;
+  try {
+    const result = await db.query<{ id: string; name: string; key_prefix: string; created_at: Date; last_used_at: Date | null; revoked_at: Date | null }>(
+      `SELECT id, name, key_prefix, created_at, last_used_at, revoked_at
+       FROM developer_api_keys WHERE wallet_address = $1 ORDER BY created_at DESC`, [wallet]
+    );
+    response.setHeader("Cache-Control", "no-store").json({ keys: result.rows.map((row) => ({
+      id: row.id, name: row.name, prefix: row.key_prefix, createdAt: row.created_at,
+      lastUsedAt: row.last_used_at, revokedAt: row.revoked_at
+    })) });
+  } catch {
+    response.status(503).json({ error: "API keys are temporarily unavailable" });
+  }
+});
+
+workspaceRouter.post("/api-keys", async (request, response) => {
+  const wallet = response.locals.walletAddress as string;
+  const name = typeof request.body?.name === "string" ? request.body.name.trim() : "";
+  if (!name || name.length > 60) { response.status(400).json({ error: "Give this API key a name of up to 60 characters" }); return; }
+  const key = `slw_live_${randomBytes(32).toString("base64url")}`;
+  const id = randomUUID();
+  const client = await db.connect();
+  try {
+    await client.query("BEGIN");
+    await client.query("SELECT pg_advisory_xact_lock(hashtext($1))", [`developer-api-keys:${wallet}`]);
+    const count = await client.query<{ count: string }>(
+      "SELECT count(*)::text AS count FROM developer_api_keys WHERE wallet_address = $1 AND revoked_at IS NULL", [wallet]
+    );
+    if (Number(count.rows[0]?.count ?? 0) >= 10) {
+      await client.query("ROLLBACK");
+      response.status(409).json({ error: "A wallet can have up to 10 active API keys" }); return;
+    }
+    await client.query(
+      `INSERT INTO developer_api_keys (id, wallet_address, name, key_hash, key_prefix)
+       VALUES ($1, $2, $3, $4, $5)`,
+      [id, wallet, name, tokenHash(key), key.slice(0, 17)]
+    );
+    await client.query("COMMIT");
+    response.setHeader("Cache-Control", "no-store").status(201).json({
+      key,
+      apiKey: { id, name, prefix: key.slice(0, 17), createdAt: new Date().toISOString(), lastUsedAt: null, revokedAt: null }
+    });
+  } catch {
+    await client.query("ROLLBACK").catch(() => {});
+    response.status(503).json({ error: "API key could not be created right now" });
+  } finally { client.release(); }
+});
+
+workspaceRouter.delete("/api-keys/:id", async (request, response) => {
+  const wallet = response.locals.walletAddress as string;
+  if (!uuidPattern.test(request.params.id)) { response.status(400).json({ error: "API key ID is invalid" }); return; }
+  try {
+    const result = await db.query(
+      `UPDATE developer_api_keys SET revoked_at = now()
+       WHERE id = $1 AND wallet_address = $2 AND revoked_at IS NULL RETURNING id`,
+      [request.params.id, wallet]
+    );
+    if (!result.rowCount) { response.status(404).json({ error: "Active API key was not found" }); return; }
+    response.setHeader("Cache-Control", "no-store").json({ revoked: true, id: request.params.id });
+  } catch {
+    response.status(503).json({ error: "API key could not be revoked right now" });
+  }
+});
+
 workspaceRouter.get("/", async (_request, response) => {
   const wallet = response.locals.walletAddress as string;
   try {

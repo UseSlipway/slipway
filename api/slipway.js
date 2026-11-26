@@ -13,8 +13,19 @@ const routes = [
   { method: 'PUT', pattern: /^v1\/workspace\/?$/ },
   { method: 'POST', pattern: /^v1\/workspace\/(challenge|verify)$/ },
   { method: 'POST', pattern: /^v1\/workspace\/revoke$/ },
+  { method: 'GET', pattern: /^v1\/workspace\/api-keys$/ },
+  { method: 'POST', pattern: /^v1\/workspace\/api-keys$/ },
+  { method: 'DELETE', pattern: /^v1\/workspace\/api-keys\/[0-9a-f-]{36}$/i },
   { method: 'POST', pattern: /^v1\/(quote|build\/trade|launch\/quote|build\/launch)$/ },
   { method: 'POST', pattern: /^v1\/x402\/(verify|settle)$/ },
+  { method: 'GET', pattern: /^public\/v1\/?$/ },
+  { method: 'GET', pattern: /^public\/v1\/chains$/ },
+  { method: 'GET', pattern: /^public\/v1\/tokens\/(rhc|base)\/[A-Za-z0-9]+$/ },
+  { method: 'GET', pattern: /^public\/v1\/market\/(networks(\/(robinhood|base))?\/trending_pools|search\/pools|networks\/(robinhood|base)\/pools\/[A-Za-z0-9]{32,64}(\/ohlcv\/(minute|hour|day))?)$/ },
+  { method: 'GET', pattern: /^public\/v1\/events\/?$/ },
+  { method: 'POST', pattern: /^public\/v1\/transactions\/submit$/ },
+  { method: 'GET', pattern: /^public\/v1\/transactions\/(rhc|base)\/0x[a-fA-F0-9]{64}$/ },
+  { method: 'POST', pattern: /^public\/v1\/(quote|build\/trade|launch\/quote|build\/launch)$/ },
 ]
 
 export default async function handler(request, response) {
