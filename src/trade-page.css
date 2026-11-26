@@ -17,3 +17,29 @@
 @media(max-width:480px){.trade-review-summary{gap:9px;padding:11px}.trade-review-summary strong{font-size:11px}.trade-fee-line{font-size:11px}}
 
 .trade-use-balance{margin-left:8px;color:#f1d294;text-decoration:underline;text-underline-offset:2px;font-size:11px}
+
+/* Narrow-screen trade controls: preserve readable amounts and review details. */
+.trade-page,.trade-page>*{min-width:0}
+.trade-ticket,.trade-discover,.trade-grid>*{min-width:0}
+.trade-amount-row{min-width:0;gap:6px}
+.trade-amount-row input{font-variant-numeric:tabular-nums}
+.trade-amount-row strong{max-width:36%;overflow-wrap:anywhere;text-align:right}
+.trade-review-summary>div{min-width:0}
+.trade-review-summary strong{overflow-wrap:anywhere;word-break:break-word}
+.trade-market-stats>div{min-width:0}
+.trade-market-stats strong{overflow-wrap:anywhere}
+@media(max-width:520px){
+ .trade-page{padding-inline:max(14px,env(safe-area-inset-left)) max(14px,env(safe-area-inset-right))}
+ .trade-header{min-width:0}
+ .trade-wallet{max-width:100%;overflow-wrap:anywhere}
+ .trade-ticket,.trade-discover{padding:clamp(16px,5vw,21px)}
+ .trade-review-summary{grid-template-columns:minmax(0,1fr)}
+ .trade-review-summary>div{overflow-wrap:anywhere}
+}
+@media(max-width:380px){
+ .trade-header h1{font-size:34px}
+ .trade-amount-row input{font-size:clamp(22px,8vw,27px)}
+ .trade-amount-row strong:first-child{font-size:24px}
+ .trade-market-stats{grid-template-columns:1fr;gap:12px}
+ .trade-discover-head{flex-wrap:wrap;gap:12px}
+}

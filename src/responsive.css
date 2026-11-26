@@ -97,3 +97,11 @@ button:focus-visible,a:focus-visible,summary:focus-visible{outline:2px solid var
 .k-price>span{font-size:clamp(26px,2.5vw,40px);line-height:1.1}
 .page-transition{z-index:4000}
 @media(prefers-reduced-motion:reduce){.page-transition{transition-duration:1ms}}
+
+/* Prevent long wallet and token values from widening workspace layouts. */
+.dashboard,.dashboard .dash-toolbar,.dashboard .dash-navigation,.dashboard .workspace-panel,.dashboard .g3{min-width:0;max-width:100%}
+.dashboard .dash-toolbar,.dashboard .dash-controls,.dashboard .dash-bottom{flex-wrap:wrap}
+.dashboard .dash-navigation nav{min-width:0;scrollbar-width:none}
+.dashboard .dash-navigation nav::-webkit-scrollbar{display:none}
+.dashboard .workspace-panel,.dashboard .activity-list,.dashboard .watch-grid{overflow-wrap:anywhere}
+.dashboard button,.dashboard a,.lp button,.trade-page button{touch-action:manipulation}

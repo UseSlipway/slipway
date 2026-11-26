@@ -147,3 +147,22 @@
 .lp-launch-quote a{color:inherit}
 @media(max-width:900px){.lp-progress{grid-template-columns:repeat(3,minmax(0,1fr));row-gap:14px}}
 @media(max-width:599px){.lp-progress{grid-template-columns:repeat(2,minmax(0,1fr))}.lp-wallet-check{flex-direction:column;align-items:stretch}.lp-image-row{align-items:flex-start}.lp-confirmed-actions>*{flex-basis:100%}}
+
+/* Keep launch content and progress labels usable at narrow widths. */
+.lp-content,.lp-content>*{min-width:0}
+.lp-heading,.lp-create-title,.lp-form-actions,.lp-wallet-check{min-width:0;flex-wrap:wrap}
+.lp-progress li{overflow-wrap:anywhere}
+.lp-progress small{height:auto;overflow:visible;text-overflow:clip;white-space:normal;line-height:1.35}
+@media(max-width:599px){
+ .lp-content{padding-inline:max(16px,env(safe-area-inset-left)) max(16px,env(safe-area-inset-right))}
+ .lp-heading{align-items:flex-start}
+ .lp-heading .lp-primary{max-width:100%;white-space:normal}
+ .lp-progress{column-gap:12px}
+ .lp-progress strong{font-size:11px;overflow-wrap:anywhere}
+ .lp-progress small{font-size:10px!important}
+ .lp-picker-modal{width:min(100%,460px);max-height:calc(100dvh - 24px);overflow-y:auto;overscroll-behavior:contain;padding:22px max(16px,env(safe-area-inset-right)) 22px max(16px,env(safe-area-inset-left))}
+ .lp-create-grid,.lp-form,.lp-preview{min-width:0}
+ .lp-form-actions>*{flex:1 1 145px;min-width:0}
+ .lp-image-row{flex-wrap:wrap}
+}
+@media(max-width:360px){.lp-progress{grid-template-columns:1fr}.lp-heading{gap:14px}.lp-heading .lp-primary{width:100%}.lp-form-actions>*{flex-basis:100%}}
