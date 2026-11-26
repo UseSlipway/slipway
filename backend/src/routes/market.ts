@@ -2,7 +2,19 @@ import { Router } from "express";
 
 export const marketRouter = Router();
 
-const upstream = "https://api.geckoterminal.com/api/v2";
+// Without a key, GeckoTerminal's public API limits by IP, and hosting providers share outbound IPs
+// between customers, so the allowance is not ours alone. With COINGECKO_API_KEY the same on-chain
+// data comes from CoinGecko's API with a per-key limit. COINGECKO_API_PLAN is "demo" (default) or "pro".
+function upstreamConfig() {
+  const key = process.env.COINGECKO_API_KEY?.trim();
+  if (!key) return { base: "https://api.geckoterminal.com/api/v2", headers: { accept: "application/json;version=20230203" } as Record<string, string>, keyed: false };
+  const pro = process.env.COINGECKO_API_PLAN?.trim().toLowerCase() === "pro";
+  return {
+    base: pro ? "https://pro-api.coingecko.com/api/v3/onchain" : "https://api.coingecko.com/api/v3/onchain",
+    headers: { accept: "application/json", [pro ? "x-cg-pro-api-key" : "x-cg-demo-api-key"]: key } as Record<string, string>,
+    keyed: true,
+  };
+}
 type MarketFetch = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
 const defaultMarketFetch: MarketFetch = (...args) => globalThis.fetch(...args);
 let marketFetch: MarketFetch = defaultMarketFetch;
@@ -11,7 +23,7 @@ let marketFetcherOverridden = false;
 // GeckoTerminal's public API allows roughly 30 calls a minute for the whole server, shared by every
 // visitor. Spend at most MARKET_UPSTREAM_PER_MINUTE (default 24) per rolling minute, keep a reserve
 // for live requests that have no cached copy, and pause upstream calls after a 429.
-const upstreamPerMinute = Math.max(1, Number(process.env.MARKET_UPSTREAM_PER_MINUTE) || 24);
+const upstreamPerMinute = Math.max(1, Number(process.env.MARKET_UPSTREAM_PER_MINUTE) || (process.env.COINGECKO_API_KEY?.trim() && process.env.COINGECKO_API_PLAN?.trim().toLowerCase() === "pro" ? 200 : 24));
 const backgroundReserve = Math.ceil(upstreamPerMinute / 2);
 const upstreamCalls: number[] = [];
 let upstreamCooldownUntil = 0;
@@ -57,7 +69,9 @@ function cacheKey(path: string, params: URLSearchParams) {
   return `${path}${normalized.size ? `?${normalized}` : ""}`;
 }
 
-function ttlFor(path: string) {
+function ttlFor(path: string, params?: URLSearchParams) {
+  // Six-hour and daily candles barely move minute to minute; keep them longer.
+  if (path.endsWith("/ohlcv/day") || (path.endsWith("/ohlcv/hour") && Number(params?.get("aggregate") || 1) >= 4)) return 300_000;
   if (path === "/search/pools") return 120_000;
   if (path.includes("/ohlcv/")) return 60_000;
   if (path.endsWith("/trades")) return 45_000;
@@ -94,7 +108,7 @@ async function fetchAndCache(key: string, target: URL, priority: Priority = "liv
   const job = (async () => {
     try {
       const result = await marketFetch(target, {
-        headers: { accept: "application/json;version=20230203" },
+        headers: upstreamConfig().headers,
         signal: AbortSignal.timeout(10_000),
       });
       if (result.status === 429) {
@@ -181,8 +195,8 @@ marketRouter.get("/*path", async (request, response) => {
   const key = cacheKey(path, params);
   recentlyRequested.set(key, Date.now());
   const cached = marketFetcherOverridden ? null : await readCache(key);
-  const fresh = cached && Date.now() - cached.fetchedAt.getTime() < ttlFor(path);
-  const target = new URL(`${upstream}${path}`);
+  const fresh = cached && Date.now() - cached.fetchedAt.getTime() < ttlFor(path, params);
+  const target = new URL(`${upstreamConfig().base}${path}`);
   target.search = params.toString();
   if (cached && fresh) {
     sendCached(response, cached, "HIT");
@@ -224,7 +238,7 @@ export function startMarketCacheRefresh(intervalMs = 30_000) {
         if (Date.now() - (recentlyRequested.get(row.cache_key) ?? 0) > 2 * 60_000) continue;
         const [path, query = ""] = row.cache_key.split("?");
         const params = new URLSearchParams(query);
-        const target = new URL(`${upstream}${path}`);
+        const target = new URL(`${upstreamConfig().base}${path}`);
         target.search = params.toString();
         await fetchAndCache(row.cache_key, target, "background");
       }

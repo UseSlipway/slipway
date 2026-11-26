@@ -177,6 +177,32 @@ describe("backend API surface", () => {
     }
   });
 
+  test("uses CoinGecko's keyed on-chain API when a key is configured", async () => {
+    let requested = "";
+    let headers: Headers | undefined;
+    const previous = { key: process.env.COINGECKO_API_KEY, plan: process.env.COINGECKO_API_PLAN };
+    process.env.COINGECKO_API_KEY = "test-key";
+    setMarketFetcher(async (input, init) => {
+      requested = String(input);
+      headers = new Headers(init?.headers);
+      return new Response(JSON.stringify({ data: [] }), { status: 200, headers: { "content-type": "application/json" } });
+    });
+    try {
+      const demo = await apiFetch(`${origin}/v1/market/networks/robinhood/trending_pools?include=base_token%2Cquote_token`);
+      expect(demo.status).toBe(200);
+      expect(requested).toBe("https://api.coingecko.com/api/v3/onchain/networks/robinhood/trending_pools?include=base_token%2Cquote_token");
+      expect(headers?.get("x-cg-demo-api-key")).toBe("test-key");
+      process.env.COINGECKO_API_PLAN = "pro";
+      await apiFetch(`${origin}/v1/market/networks/base/trending_pools?include=base_token%2Cquote_token`);
+      expect(requested).toBe("https://pro-api.coingecko.com/api/v3/onchain/networks/base/trending_pools?include=base_token%2Cquote_token");
+      expect(headers?.get("x-cg-pro-api-key")).toBe("test-key");
+    } finally {
+      setMarketFetcher();
+      if (previous.key === undefined) delete process.env.COINGECKO_API_KEY; else process.env.COINGECKO_API_KEY = previous.key;
+      if (previous.plan === undefined) delete process.env.COINGECKO_API_PLAN; else process.env.COINGECKO_API_PLAN = previous.plan;
+    }
+  });
+
   test("stops calling the provider after a 429 and answers busy instead", async () => {
     let calls = 0;
     resetMarketBudget();
