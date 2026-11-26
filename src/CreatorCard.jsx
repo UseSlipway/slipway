@@ -26,11 +26,12 @@ export default function CreatorCard({ item, endpoint }) {
   const [names, setNames] = useState({});
   useEffect(() => {
     if (!chain || !item?.token) { setState({ status: 'unsupported' }); return }
-    let active = true;
+    let active = true, retry, attempts = 0;
     const controller = new AbortController();
     setState({ status: 'loading' });
     setNames({});
-    getCreatorHistory(endpoint, chain, item.token).then(async data => {
+    // Retry a failed lookup (for example during a backend deploy) instead of staying on the error.
+    const load = () => getCreatorHistory(endpoint, chain, item.token).then(async data => {
       if (!active) return;
       setState({ status: data.found ? 'ready' : 'unknown', data });
       const others = (data.recent || []).map(r => r.token).filter(t => t !== item.token.toLowerCase()).slice(0, 5);
@@ -40,8 +41,14 @@ export default function CreatorCard({ item, endpoint }) {
           if (active) setNames(Object.fromEntries((json.data || []).map(t => [t.attributes?.address?.toLowerCase(), t.attributes?.symbol || t.attributes?.name])));
         } catch {}
       }
-    }).catch(() => { if (active) setState({ status: 'error' }) });
-    return () => { active = false; controller.abort() };
+    }).catch(() => {
+      if (!active) return;
+      attempts += 1;
+      setState({ status: 'error', retrying: attempts < 6 });
+      if (attempts < 6) retry = setTimeout(load, Math.min(10000 * attempts, 30000));
+    });
+    load();
+    return () => { active = false; controller.abort(); clearTimeout(retry) };
   }, [chain, item?.token, endpoint]);
 
   if (state.status === 'unsupported') return null;
@@ -50,7 +57,7 @@ export default function CreatorCard({ item, endpoint }) {
   return <section className="lp-card creator-card" aria-labelledby="creator-card-title">
     <h3 id="creator-card-title">Creator</h3>
     {state.status === 'loading' ? <p className="creator-muted" role="status">Looking up who launched this token…</p>
-      : state.status === 'error' ? <p className="creator-muted" role="status">Creator history is unavailable right now.</p>
+      : state.status === 'error' ? <p className="creator-muted" role="status">Creator history is unavailable right now.{state.retrying ? ' Retrying…' : ''}</p>
         : state.status === 'unknown' ? <p className="creator-muted">Slipway hasn't indexed this token's launch{since ? ` (indexing started ${since})` : ''}. Tokens launched earlier, or outside Pons and Clanker, have no creator history here.</p>
           : <>
             <p className="creator-address">

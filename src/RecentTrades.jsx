@@ -47,8 +47,9 @@ export default function RecentTrades({ item, endpoint, wallet }) {
   const [now, setNow] = useState(Date.now());
   useEffect(() => {
     if (!item?.pool) return;
-    let active = true, controller;
+    let active = true, controller, retry;
     async function load() {
+      clearTimeout(retry);
       controller?.abort();
       controller = new AbortController();
       try {
@@ -57,7 +58,11 @@ export default function RecentTrades({ item, endpoint, wallet }) {
         if (!active) return;
         setState({ status: 'ready', rows: parseTrades(json, item.token), checked: Date.now() });
       } catch (error) {
-        if (active && error.name !== 'AbortError') setState(s => ({ ...s, status: s.rows.length ? 'ready' : 'error', stale: true }));
+        if (active && error.name !== 'AbortError') {
+          setState(s => ({ ...s, status: s.rows.length ? 'ready' : 'error', stale: true }));
+          // A busy provider or a backend restart usually clears quickly; try again sooner than the normal refresh.
+          retry = setTimeout(() => { if (active && !document.hidden) load() }, 15000);
+        }
       }
     }
     setState({ status: 'loading', rows: [] });
@@ -65,7 +70,7 @@ export default function RecentTrades({ item, endpoint, wallet }) {
     load();
     const timer = setInterval(() => { if (!document.hidden) load() }, 45000);
     const tick = setInterval(() => setNow(Date.now()), 15000);
-    return () => { active = false; controller?.abort(); clearInterval(timer); clearInterval(tick) };
+    return () => { active = false; controller?.abort(); clearInterval(timer); clearInterval(tick); clearTimeout(retry) };
   }, [item?.network, item?.pool, item?.token, endpoint, minUsd]);
 
   const me = (wallet || '').toLowerCase();
@@ -90,7 +95,7 @@ export default function RecentTrades({ item, endpoint, wallet }) {
       {summary.buyUsd + summary.sellUsd > 0 && <span className="recent-trades-ratio" aria-hidden="true"><i style={{ width: `${(summary.buyUsd / (summary.buyUsd + summary.sellUsd)) * 100}%` }} /></span>}
     </div>}
     {state.status === 'loading' ? <div className="market-loading" role="status">Loading recent trades…</div>
-      : state.status === 'error' ? <div className="market-empty-state" role="status"><strong>Trades are temporarily unavailable</strong><span>The market provider did not respond. This retries every 45 seconds.</span></div>
+      : state.status === 'error' ? <div className="market-empty-state" role="status"><strong>Trades are temporarily unavailable</strong><span>The market provider did not respond. Retrying in a few seconds…</span></div>
         : !filtered.length ? <div className="market-empty-state"><strong>{mine ? 'No trades from your wallet here' : state.rows.length ? 'No trades match these filters' : 'No trades in the last 24 hours'}</strong><span>{mine ? 'Trades you make on this pool show up here, highlighted.' : state.rows.length ? 'Try another side or a smaller minimum size.' : minUsd ? 'Try a smaller minimum size.' : 'This pool has been quiet. New trades appear here within about a minute.'}</span></div>
           : <>
             <div className="recent-trades-table" role="table" aria-label="Recent trades">
