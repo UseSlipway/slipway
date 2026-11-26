@@ -51,13 +51,14 @@ export default function SlipwayTrending({ endpoint, chain, onSelect }) {
         if (active && error.name !== 'AbortError') setState(s => ({ ...s, status: s.items.length ? 'ready' : 'error', stale: true }));
       }
     }
-    setState({ status: 'loading', items: [] });
+    setState(s => ({ ...s, status: s.items.length ? 'ready' : 'loading' }));
     load();
     const timer = setInterval(() => { if (!document.hidden) load() }, 120000);
     return () => { active = false; controller?.abort(); clearInterval(timer) };
   }, [endpoint, chain]);
 
-  if (state.status === 'empty' || state.status === 'error') return null;
+  // Render nothing until there is something to rank, so an empty feed never flashes a loading state.
+  if (state.status !== 'ready' || !state.items.length) return null;
   return <section className="slipway-trending" aria-labelledby="slipway-trending-title">
     <div className="lp-section-head">
       <div>
@@ -65,8 +66,7 @@ export default function SlipwayTrending({ endpoint, chain, onSelect }) {
         <p>Ranked by quotes, prepared trades and watchlists on Slipway{state.window ? ` · last ${state.window === '1h' ? 'hour' : '24 hours'}` : ''}</p>
       </div>
     </div>
-    {state.status === 'loading' ? <div className="market-loading" role="status">Loading what Slipway users are trading…</div>
-      : <ol className="slipway-trending-list">
+    <ol className="slipway-trending-list">
         {state.items.map((item, index) => {
           const name = item.row?.name || item.meta?.name || short(item.token);
           const symbol = item.row?.symbol || item.meta?.symbol || '';
@@ -80,7 +80,7 @@ export default function SlipwayTrending({ endpoint, chain, onSelect }) {
             ? <button type="button" className="slipway-trending-row" onClick={() => onSelect(item.row)}>{body}</button>
             : <div className="slipway-trending-row is-static">{body}</div>}</li>;
         })}
-      </ol>}
-    {state.status === 'ready' && <p className="market-source">From anonymous Slipway activity: counts only, no wallets or amounts{state.checked ? ` · checked ${new Date(state.checked).toLocaleTimeString()}` : ''}{state.stale ? ' · last refresh failed, showing earlier data' : ''}. Not a recommendation.</p>}
+      </ol>
+    {<p className="market-source">From anonymous Slipway activity: counts only, no wallets or amounts{state.checked ? ` · checked ${new Date(state.checked).toLocaleTimeString()}` : ''}{state.stale ? ' · last refresh failed, showing earlier data' : ''}. Not a recommendation.</p>}
   </section>;
 }
