@@ -499,6 +499,21 @@ export async function getCreatorHistory(endpoint, chain, token) {
   return readJson(response)
 }
 
+export async function getHolderBreakdown(endpoint, chain, token) {
+  if (!['rhc', 'base', 'spcx'].includes(chain) || typeof token !== 'string' || !/^0x[a-fA-F0-9]{40}$/.test(token)) {
+    throw new Error('Provide a supported chain and token address.')
+  }
+  const response = await fetch(apiUrl(apiRoot(endpoint), `v1/holders/${chain}/${token}`), {
+    method: 'GET',
+    credentials: 'omit',
+    headers: { Accept: 'application/json' },
+    signal: AbortSignal.timeout(15_000),
+  }).catch(error => {
+    throw new Error(error.name === 'TimeoutError' ? 'Holder data took too long to respond.' : 'Could not reach Slipway holder data.')
+  })
+  return readJson(response)
+}
+
 function profileQuery(chain, token) {
   if (!['rhc', 'base'].includes(chain) || typeof token !== 'string' || !/^0x[a-fA-F0-9]{40}$/.test(token)) {
     throw new Error('Provide a supported chain and token address.')

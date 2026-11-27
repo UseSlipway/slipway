@@ -11,6 +11,7 @@ const routes = [
   { method: 'GET', pattern: /^v1\/events$/ },
   { method: 'GET', pattern: /^v1\/events\/creator$/ },
   { method: 'GET', pattern: /^v1\/pons\/progress$/ },
+  { method: 'GET', pattern: /^v1\/holders\/(rhc|base|spcx)\/0x[a-fA-F0-9]{40}$/ },
   { method: 'GET', pattern: /^v1\/trending$/ },
   { method: 'GET', pattern: /^v1\/creators\/profile$/ },
   { method: 'PUT', pattern: /^v1\/creators\/profile$/ },

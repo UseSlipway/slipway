@@ -17,6 +17,7 @@ import { publicApiRouter } from "./routes/publicApi";
 import { trendingRouter } from "./routes/trending";
 import { creatorProfileRouter } from "./routes/creatorProfiles";
 import { ponsProgressRouter } from "./routes/ponsProgress";
+import { holderRouter } from "./routes/holders";
 
 export const app = express();
 app.disable("x-powered-by");
@@ -110,6 +111,7 @@ app.use("/v1/events", eventRouter);
 app.use("/v1/trending", trendingRouter);
 app.use("/v1/creators/profile", creatorProfileRouter);
 app.use("/v1/pons", ponsProgressRouter);
+app.use("/v1/holders", holderRouter);
 app.use("/v1", launchRouter);
 app.use("/v1/x402", x402Router);
 app.use("/public/v1", publicApiRouter);

@@ -2,6 +2,13 @@
 
 Notable project changes are recorded here. Contract deployments and audit follow-ups are linked to the technical records in `technical-docs/` and `contracts/deployments/`.
 
+## 2026-11-27 — Holder breakdown
+
+- Added holder count and top 10 supply concentration from CoinGecko Onchain where provider coverage includes the network.
+- Added creator wallet supply share from read-only onchain balance and supply calls when the launch creator can be verified.
+- Cached snapshots in Postgres; unsupported, missing and stale metrics are labeled instead of displayed as zero.
+- No contract changes.
+
 ## 2026-11-27 — Pons graduation progress
 
 - Added cached, read-only progress for active Pons bonding curves, measured against each token's onchain graduation threshold.
