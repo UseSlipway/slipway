@@ -49,6 +49,30 @@ test('same-origin proxy forwards only allowed paths to the server-configured bac
   assert.equal(res.headers['cache-control'], 'no-store')
 })
 
+test('proxy forwards prompt-to-launch requests through the backend API key', async (t) => {
+  const originalFetch = globalThis.fetch
+  const originalUrl = process.env.SLIPWAY_API_URL
+  process.env.SLIPWAY_API_URL = 'https://backend.example'
+  t.after(() => {
+    globalThis.fetch = originalFetch
+    if (originalUrl === undefined) delete process.env.SLIPWAY_API_URL
+    else process.env.SLIPWAY_API_URL = originalUrl
+  })
+  let target
+  let forwarded
+  globalThis.fetch = async (url, options) => {
+    target = String(url)
+    forwarded = options
+    return new Response(JSON.stringify({ name: 'Test', symbol: 'TST' }), { status: 200 })
+  }
+  const res = mockResponse()
+  await handler({ url: '/api/slipway?path=v1%2Flaunch%2Fplan', method: 'POST', headers: { 'content-type': 'application/json' }, body: { prompt: 'A playful token for dog owners' } }, res)
+  assert.equal(target, 'https://backend.example/v1/launch/plan')
+  assert.equal(forwarded.headers.get('x-api-key'), testApiKey)
+  assert.deepEqual(JSON.parse(forwarded.body), { prompt: 'A playful token for dog owners' })
+  assert.equal(res.statusCode, 200)
+})
+
 test('proxy allows the bounded market data routes', async (t) => {
   const originalFetch = globalThis.fetch
   const originalUrl = process.env.SLIPWAY_API_URL

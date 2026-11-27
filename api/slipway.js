@@ -25,6 +25,7 @@ const routes = [
   { method: 'POST', pattern: /^v1\/workspace\/api-keys$/ },
   { method: 'DELETE', pattern: /^v1\/workspace\/api-keys\/[0-9a-f-]{36}$/i },
   { method: 'POST', pattern: /^v1\/(quote|build\/trade|launch\/quote|build\/launch|build\/claim)$/ },
+  { method: 'POST', pattern: /^v1\/launch\/plan$/ },
   { method: 'GET', pattern: /^v1\/creators\/earnings$/ },
   { method: 'GET', pattern: /^v1\/launch\/costs$/ },
   { method: 'POST', pattern: /^v1\/x402\/(verify|settle)$/ },

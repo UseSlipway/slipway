@@ -106,6 +106,16 @@ describe("backend API surface", () => {
     expect(response.status).toBe(400);
   });
 
+  test("validates prompt-to-launch input before calling Groq", async () => {
+    const response = await apiFetch(`${origin}/v1/launch/plan`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ prompt: "short" })
+    });
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({ error: "Describe the launch in 8–600 characters." });
+  });
+
   test("rejects malformed launch build requests before database access", async () => {
     const response = await apiFetch(`${origin}/v1/build/launch`, {
       method: "POST",

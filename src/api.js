@@ -100,14 +100,14 @@ export function formatTokenAmount(value, significantDigits = 6) {
   return displayedFraction ? `${normalizedWhole}.${displayedFraction}` : normalizedWhole
 }
 
-export async function request(endpoint, path, body) {
+export async function request(endpoint, path, body, timeoutMs = 15_000) {
   const root = apiRoot(endpoint)
   const response = await fetch(apiUrl(root, `v1/${path}`), {
     method: 'POST',
     credentials: 'omit',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
-    signal: AbortSignal.timeout(15_000),
+    signal: AbortSignal.timeout(timeoutMs),
   }).catch((error) => {
     throw new Error(error.name === 'TimeoutError' ? 'The service took too long to respond. Try again.' : 'Could not reach your Slipway service.')
   })
