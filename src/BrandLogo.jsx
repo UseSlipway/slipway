@@ -1,6 +1,7 @@
 import React from 'react';
 export const chains=[['robinhood','Robinhood Chain'],['base','Base'],['spcx','SPCX Chain']];
 export default function BrandLogo({name,label,className=''}){
+ if(name==='spcx')return <img className={`brand-mark brand-spcx ${className}`} src="/SPCX-CHAIN-logo.png" alt={label||'SPCX Chain'} width="110" height="110" loading="eager"/>;
  if(name==='pancakeswap')return <img className={`brand-mark ${className}`} src="/assets/brands/pancakeswap-slipway.svg" alt={label||'PancakeSwap'} width="1281" height="198" loading="eager"/>;
  if(['zora','pump-fun'].includes(name))return <img className={`brand-mark brand-orb ${className}`} src={`/assets/brands/${name}.svg`} alt={label||'Zora'} width="100" height="100" loading="eager"/>;
  const src=`/assets/brands/${name}.${name==='bags'?'png':'svg'}`;
