@@ -514,6 +514,23 @@ export async function getHolderBreakdown(endpoint, chain, token) {
   return readJson(response)
 }
 
+export async function getTokenDuplicates(endpoint, item) {
+  const chain = chainIds[item?.chain]
+  if (!chain || typeof item?.token !== 'string' || !/^0x[a-fA-F0-9]{40}$/.test(item.token)
+    || typeof item?.symbol !== 'string' || !item.symbol.trim() || typeof item?.name !== 'string' || !item.name.trim()) {
+    throw new Error('Token details are incomplete for duplicate checking.')
+  }
+  const query = new URLSearchParams({ chain, token: item.token, symbol: item.symbol.trim(), name: item.name.trim() })
+  if (item.cap != null && Number.isFinite(Number(item.cap)) && Number(item.cap) >= 0) query.set('marketCap', String(item.cap))
+  if (typeof item.created === 'string' && Number.isFinite(Date.parse(item.created))) query.set('poolCreatedAt', item.created)
+  const response = await fetch(apiUrl(apiRoot(endpoint), 'v1/duplicates', query.toString()), {
+    method: 'GET', credentials: 'omit', headers: { Accept: 'application/json' }, signal: AbortSignal.timeout(20_000),
+  }).catch(error => {
+    throw new Error(error.name === 'TimeoutError' ? 'Duplicate check took too long to respond.' : 'Could not reach Slipway duplicate checks.')
+  })
+  return readJson(response)
+}
+
 function profileQuery(chain, token) {
   if (!['rhc', 'base'].includes(chain) || typeof token !== 'string' || !/^0x[a-fA-F0-9]{40}$/.test(token)) {
     throw new Error('Provide a supported chain and token address.')

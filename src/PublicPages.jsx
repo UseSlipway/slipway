@@ -21,6 +21,7 @@ const phases=[
 
 
 const updates=[
+ {type:'Product',title:'Name and ticker overlap checks',copy:'Token pages compare matching names and tickers against Slipway-indexed launches and available market pools. When the data supports it, Slipway points out an earlier pool with a larger reported market cap.',links:[['Explore tokens','/dashboard']]},
  {type:'Product',title:'Holder breakdown',copy:'Inspect reported holder count and top 10 supply concentration on supported provider networks, plus the creator wallet’s share when Slipway can verify the launch and read its onchain balance. Unsupported or unavailable metrics stay clearly marked.',links:[['Explore a token','/dashboard']]},
  {type:'Product',title:'Pons graduation progress',copy:'See how much native or token quote liquidity an active Pons launch has raised against its graduation threshold. Progress appears on launch cards and token pages, and markets can be sorted by those closest to graduation.',links:[['Explore markets','/dashboard']]},
  {type:'Product',title:'Live new launches',copy:'Follow launches from Pons on Robinhood Chain, Clanker on Base and Orbit on SPCX Chain. See creators and open tokens directly in the trade view. SPCX pool market data is not currently provided.',links:[['Explore new launches','/dashboard']]},

@@ -2,6 +2,13 @@
 
 Notable project changes are recorded here. Contract deployments and audit follow-ups are linked to the technical records in `technical-docs/` and `contracts/deployments/`.
 
+## 2026-11-27 — Name and ticker overlap checks
+
+- Added token-page checks against Slipway-indexed launches and available market search results.
+- Highlighted an earlier pool only when its reported market cap and pool creation time support that comparison.
+- Labeled incomplete source coverage; matching names or tickers are not presented as proof that tokens are related.
+- No contract changes.
+
 ## 2026-11-27 — Holder breakdown
 
 - Added holder count and top 10 supply concentration from CoinGecko Onchain where provider coverage includes the network.

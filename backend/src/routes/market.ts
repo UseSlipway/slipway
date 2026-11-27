@@ -143,6 +143,26 @@ async function fetchAndCache(key: string, target: URL, priority: Priority = "liv
   try { return await job; } finally { refreshes.delete(key); }
 }
 
+export async function cachedMarketPayload(path: string, params: URLSearchParams): Promise<Record<string, unknown> | null> {
+  if (!routes.some((route) => route.test(path)) || !validQuery(path, params)) return null;
+  const key = cacheKey(path, params);
+  recentlyRequested.set(key, Date.now());
+  const cached = marketFetcherOverridden ? null : await readCache(key);
+  const fresh = cached && Date.now() - cached.fetchedAt.getTime() < ttlFor(path, params);
+  if (cached && fresh) {
+    try { return JSON.parse(cached.body) as Record<string, unknown> } catch { return null }
+  }
+  const target = new URL(`${upstreamConfig().base}${path}`);
+  target.search = params.toString();
+  if (cached) {
+    void fetchAndCache(key, target, "background");
+    try { return JSON.parse(cached.body) as Record<string, unknown> } catch { return null }
+  }
+  const result = await fetchAndCache(key, target);
+  if (!result || result.status < 200 || result.status >= 300) return null;
+  try { return JSON.parse(result.body) as Record<string, unknown> } catch { return null }
+}
+
 function sendCached(response: import("express").Response, cached: CachedResponse, cacheStatus: "HIT" | "STALE" | "MISS") {
   response.status(cached.status);
   response.setHeader("Cache-Control", "public, max-age=15");
