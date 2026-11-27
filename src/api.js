@@ -566,3 +566,27 @@ export function saveCreatorProfile(endpoint, session, profile) {
 export function deleteCreatorProfile(endpoint, session, chain, token) {
   return profileRequest(endpoint, 'DELETE', profileQuery(chain, token), session)
 }
+
+export async function getCreatorEarnings(endpoint, wallet) {
+  if (typeof wallet !== 'string' || !/^0x[a-fA-F0-9]{40}$/.test(wallet)) throw new Error('Connect a wallet to see creator earnings.')
+  const response = await fetch(apiUrl(apiRoot(endpoint), 'v1/creators/earnings', new URLSearchParams({ wallet }).toString()), {
+    method: 'GET',
+    credentials: 'omit',
+    headers: { Accept: 'application/json' },
+    signal: AbortSignal.timeout(20_000),
+  }).catch((error) => {
+    throw new Error(error.name === 'TimeoutError' ? 'Creator earnings took too long to load.' : 'Could not reach Slipway creator earnings.')
+  })
+  return readJson(response)
+}
+
+export async function buildCreatorClaim(endpoint, { chain, wallet, asset }) {
+  if (!['rhc', 'base'].includes(chain) || !/^0x[a-fA-F0-9]{40}$/.test(wallet || '') || !(asset === 'native' || /^0x[a-fA-F0-9]{40}$/.test(asset || ''))) {
+    throw new Error('Choose a balance to claim.')
+  }
+  const build = await request(endpoint, 'build/claim', { chain, wallet, asset })
+  if (!build?.buildId || !evmBuildMatches(build, { chain: chain === 'rhc' ? 'Robinhood Chain' : 'Base', wallet })) {
+    throw new Error('The service did not return a matching claim transaction.')
+  }
+  return build
+}

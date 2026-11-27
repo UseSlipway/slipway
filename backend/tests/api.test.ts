@@ -332,6 +332,32 @@ describe("backend API surface", () => {
     expect(profileSchema.safeParse({ chain: "rhc", token, extra: 1 }).success).toBe(false);
   });
 
+  test("creator earnings and claim builds validate input before chain access", async () => {
+    const badWallet = await apiFetch(`${origin}/v1/creators/earnings?wallet=nope`);
+    expect(badWallet.status).toBe(400);
+    for (const body of [
+      { chain: "solana", wallet: `0x${"a".repeat(40)}`, asset: "native" },
+      { chain: "rhc", wallet: "nope", asset: "native" },
+      { chain: "rhc", wallet: `0x${"a".repeat(40)}`, asset: "everything" },
+      { chain: "rhc", wallet: `0x${"a".repeat(40)}`, asset: "native", extra: true },
+    ]) {
+      const response = await apiFetch(`${origin}/v1/build/claim`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+      expect(response.status, JSON.stringify(body)).toBe(400);
+    }
+  });
+
+  test("claim calldata targets the documented launchpad functions", async () => {
+    const { encodeFunctionData, decodeFunctionData, parseAbi } = await import("viem");
+    const pons = parseAbi(["function claim()", "function claimToken(address token)"]);
+    const clanker = parseAbi(["function claim(address feeOwner, address token)"]);
+    expect(encodeFunctionData({ abi: pons, functionName: "claim" })).toBe("0x4e71d92d");
+    const token = `0x${"b".repeat(40)}` as `0x${string}`;
+    const owner = `0x${"c".repeat(40)}` as `0x${string}`;
+    const lower = (args: readonly unknown[] | undefined) => (args ?? []).map((value) => String(value).toLowerCase());
+    expect(lower(decodeFunctionData({ abi: pons, data: encodeFunctionData({ abi: pons, functionName: "claimToken", args: [token] }) }).args)).toEqual([token]);
+    expect(lower(decodeFunctionData({ abi: clanker, data: encodeFunctionData({ abi: clanker, functionName: "claim", args: [owner, token] }) }).args)).toEqual([owner, token]);
+  });
+
   test("validates trending queries before database access", async () => {
     for (const query of ["window=7d", "chain=solana", "limit=0", "limit=31", "limit=abc"]) {
       const response = await apiFetch(`${origin}/v1/trending?${query}`);

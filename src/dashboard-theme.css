@@ -99,3 +99,12 @@ body[data-dashboard-theme=dark] .site-header.on-dashboard:not(.menu-open) .menu-
 .dashboard .ws-day em{font-style:normal;font-size:10px;padding:3px 8px;border-radius:20px;border:1px solid var(--line);opacity:.8}
 .dashboard .ws-day a{font-size:11px;color:inherit}
 @media(max-width:599px){.dashboard .ws-identity{flex-wrap:wrap}.dashboard .ws-identity .button{width:100%}.dashboard .ws-day li{grid-template-columns:48px minmax(0,1fr);row-gap:4px}.dashboard .ws-day em,.dashboard .ws-day a{grid-column:2;justify-self:start}.dashboard .ws-toolbar{align-items:flex-start;flex-direction:column}}
+.dashboard .creator-earnings{margin-bottom:18px}
+.dashboard .creator-earnings .panel-header .ws-more{margin:0}
+.dashboard .creator-earnings td small{display:block;opacity:.65;font-size:11px}
+.dashboard .creator-earnings .button{min-height:34px;padding:0 16px;font-size:12px}
+.dashboard .creator-earnings .button:disabled{opacity:.6}
+.dashboard .creator-claimed{font-size:12px;font-weight:650;color:#2f6b45}
+.dashboard[data-theme=dark] .creator-claimed{color:#9fdcb3}
+.dashboard .creator-claimed a{color:inherit}
+.dashboard .creator-claim-error{display:block;width:100%;font-size:11px;color:#ba4949}
