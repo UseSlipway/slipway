@@ -1,6 +1,7 @@
 const supportedEvmChains = {
   'Robinhood Chain': { slug: 'rhc', chainId: 4663 },
   Base: { slug: 'base', chainId: 8453 },
+  'SPCX Chain': { slug: 'spcx', chainId: 46630022 },
 }
 export const chainIds = Object.fromEntries(Object.entries(supportedEvmChains).map(([name, chain]) => [name, chain.slug]))
 export const launchChainIds = Object.fromEntries(Object.entries(supportedEvmChains).map(([name, chain]) => [name, chain.chainId]))
@@ -263,14 +264,14 @@ export async function getPoolTrades(endpoint, network, pool, signal) {
 }
 
 export async function submitTransaction(endpoint, chain, signedTransaction) {
-  if (!['rhc', 'base'].includes(chain) || typeof signedTransaction !== 'string' || !/^0x(?:[a-fA-F0-9]{2}){1,100000}$/.test(signedTransaction)) {
+  if (!['rhc', 'base', 'spcx'].includes(chain) || typeof signedTransaction !== 'string' || !/^0x(?:[a-fA-F0-9]{2}){1,100000}$/.test(signedTransaction)) {
     throw new Error('Provide a supported chain and signed EVM transaction.')
   }
   return request(endpoint, 'transactions/submit', { chain, signedTransaction })
 }
 
 export async function getTransactionStatus(endpoint, chain, hash) {
-  if (!['rhc', 'base'].includes(chain) || typeof hash !== 'string' || !/^0x[a-fA-F0-9]{64}$/.test(hash)) {
+  if (!['rhc', 'base', 'spcx'].includes(chain) || typeof hash !== 'string' || !/^0x[a-fA-F0-9]{64}$/.test(hash)) {
     throw new Error('Provide a supported chain and valid transaction hash.')
   }
   const root = apiRoot(endpoint)
@@ -300,7 +301,9 @@ export async function submitBuiltTransactions(endpoint, build, provider = global
     if (error?.code !== 4902) throw error
     const chain = build.chain === 'base'
       ? { chainId: expectedChainId, chainName: 'Base', nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 }, rpcUrls: ['https://mainnet.base.org'], blockExplorerUrls: ['https://basescan.org'] }
-      : { chainId: expectedChainId, chainName: 'Robinhood Chain', nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 }, rpcUrls: ['https://rpc.mainnet.chain.robinhood.com'], blockExplorerUrls: ['https://robinhoodchain.blockscout.com'] }
+      : build.chain === 'spcx'
+        ? { chainId: expectedChainId, chainName: 'SPCX Chain', nativeCurrency: { name: 'SPCX', symbol: 'SPCX', decimals: 18 }, rpcUrls: ['https://rpc.spcxchain.network'], blockExplorerUrls: ['https://explorer.spcxchain.network'] }
+        : { chainId: expectedChainId, chainName: 'Robinhood Chain', nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 }, rpcUrls: ['https://rpc.mainnet.chain.robinhood.com'], blockExplorerUrls: ['https://robinhoodchain.blockscout.com'] }
     await provider.request({ method: 'wallet_addEthereumChain', params: [chain] })
     await provider.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: expectedChainId }] })
   }
@@ -334,7 +337,7 @@ export async function submitBuiltTransactions(endpoint, build, provider = global
 
 export async function getEvents(endpoint, { after = 0, chain, types, wallet, limit = 100, order } = {}) {
   if (!Number.isSafeInteger(Number(after)) || Number(after) < 0 || !Number.isInteger(limit) || limit < 1 || limit > 500
-    || (chain !== undefined && !['rhc', 'base'].includes(chain))
+    || (chain !== undefined && !['rhc', 'base', 'spcx'].includes(chain))
     || (wallet !== undefined && (typeof wallet !== 'string' || !/^0x[a-fA-F0-9]{40}$/.test(wallet)))
     || (types !== undefined && (!Array.isArray(types) || types.length > 3 || types.some((type) => !['token.launched', 'pool.graduated', 'pool.initialized'].includes(type))))
     || (order !== undefined && !['asc', 'desc'].includes(order))) {
@@ -410,7 +413,7 @@ async function workspaceRequest(endpoint, method, token, body, action = '') {
 }
 
 export async function createWorkspaceSession(endpoint, wallet, chainId, signMessage) {
-  if (!/^0x[a-fA-F0-9]{40}$/.test(wallet) || ![4663, 8453].includes(chainId) || typeof signMessage !== 'function') throw new Error('Connect a wallet on Base or Robinhood Chain to sync your workspace.')
+  if (!/^0x[a-fA-F0-9]{40}$/.test(wallet) || ![4663, 8453, 46630022].includes(chainId) || typeof signMessage !== 'function') throw new Error('Connect a supported EVM wallet to sync your workspace.')
   const challenge = await request(endpoint, 'workspace/challenge', { wallet, chainId })
   if (challenge.wallet?.toLowerCase() !== wallet.toLowerCase() || challenge.chainId !== chainId || typeof challenge.message !== 'string' || typeof challenge.nonce !== 'string') {
     throw new Error('The service returned an invalid wallet challenge.')
@@ -464,7 +467,7 @@ export async function revokeDeveloperApiKey(endpoint, token, id) {
 }
 
 export async function getTrending(endpoint, { window = '1h', chain, limit = 12 } = {}) {
-  if (!['1h', '24h'].includes(window) || (chain !== undefined && !['rhc', 'base'].includes(chain)) || !Number.isInteger(limit) || limit < 1 || limit > 30) {
+  if (!['1h', '24h'].includes(window) || (chain !== undefined && !['rhc', 'base', 'spcx'].includes(chain)) || !Number.isInteger(limit) || limit < 1 || limit > 30) {
     throw new Error('Provide valid trending filters.')
   }
   const query = new URLSearchParams({ window, limit: String(limit) })
@@ -481,7 +484,7 @@ export async function getTrending(endpoint, { window = '1h', chain, limit = 12 }
 }
 
 export async function getCreatorHistory(endpoint, chain, token) {
-  if (!['rhc', 'base'].includes(chain) || typeof token !== 'string' || !/^0x[a-fA-F0-9]{40}$/.test(token)) {
+  if (!['rhc', 'base', 'spcx'].includes(chain) || typeof token !== 'string' || !/^0x[a-fA-F0-9]{40}$/.test(token)) {
     throw new Error('Provide a supported chain and token address.')
   }
   const query = new URLSearchParams({ chain, token })

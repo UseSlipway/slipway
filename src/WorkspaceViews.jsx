@@ -3,7 +3,7 @@ import { Icon } from './App';
 
 const pageSize = 10;
 const plural = noun => /(ch|sh|s|x)$/.test(noun) ? `${noun}es` : `${noun}s`;
-const explorers = { 'Base': 'https://basescan.org', 'Robinhood Chain': 'https://robinhoodchain.blockscout.com' };
+const explorers = { 'Base': 'https://basescan.org', 'Robinhood Chain': 'https://robinhoodchain.blockscout.com', 'SPCX Chain': 'https://explorer.spcxchain.network' };
 const short = value => value ? `${value.slice(0, 6)}…${value.slice(-4)}` : '';
 const timeOf = item => Date.parse(item.updatedAt || item.createdAt || item.time || item.indexedAt || '') || 0;
 const title = phase => (phase || 'LAUNCHED').replaceAll('_', ' ').toLowerCase().replace(/^./, c => c.toUpperCase());

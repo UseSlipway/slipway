@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
 import { getEvents } from './api';
 
-export const blankLaunch = { name: '', symbol: '', description: '', chain: 'Robinhood Chain', venue: 'Pons', website: '', telegram: '', x: '' };
+export const blankLaunch = { name: '', symbol: '', description: '', chain: 'Robinhood Chain', venue: 'Pons', website: '', telegram: '', x: '', devBuy: '', creatorFeeBps: '0' };
 export const imageTypes = ['image/png', 'image/jpeg', 'image/gif', 'image/webp'];
 export const imageMaxBytes = 2 * 1024 * 1024;
 const progressKey = 'slipway.launch.progress.v1';
-const explorers = { 'Base': 'https://basescan.org', 'Robinhood Chain': 'https://robinhoodchain.blockscout.com' };
+const explorers = { 'Base': 'https://basescan.org', 'Robinhood Chain': 'https://robinhoodchain.blockscout.com', 'SPCX Chain': 'https://explorer.spcxchain.network' };
 
 export function explorerUrl(chain, kind, value) { return `${explorers[chain] || explorers['Robinhood Chain']}/${kind}/${value}` }
 export function shortHash(value) { return value ? `${value.slice(0, 6)}…${value.slice(-4)}` : '' }
@@ -45,7 +45,7 @@ export function readImageSize(dataUrl) {
 
 // The indexer records token.launched events a few seconds after confirmation. Match on the final transaction hash.
 export async function findLaunchedToken(endpoint, { chain, wallet, hash }, { attempts = 10, delayMs = 3000, signal } = {}) {
-  const chainId = chain === 'Base' ? 'base' : 'rhc';
+  const chainId = chain === 'Base' ? 'base' : chain === 'SPCX Chain' ? 'spcx' : 'rhc';
   for (let attempt = 0; attempt < attempts; attempt += 1) {
     if (signal?.aborted) return null;
     try {

@@ -1,12 +1,13 @@
 # Slipway
 
-Slipway is a non-custodial interface for discovering tokens and preparing trades across Base and Robinhood Chain. The app builds unsigned EVM transactions for a connected wallet to review and sign; Slipway does not hold wallet keys or custody user assets.
+Slipway is a non-custodial interface for discovering tokens and preparing trades across Robinhood Chain, Base and SPCX Chain. The app builds unsigned EVM transactions for a connected wallet to review and sign; Slipway does not hold wallet keys or custody user assets.
 
 **Slipway token CA:** `0xef8aad91c4292d469bd51f70835c8a6cb9c3f590` ($SLIP on Robinhood Chain, launched on Pons)
 
 ## Features
 
 - Explore token and pool market data.
+- Launch and trade through Pons on Robinhood Chain, Clanker and Uniswap on Base, and Orbit curves plus separate StoxSwap V2 pools on SPCX Chain.
 - Request trade quotes and build unsigned trades for supported EVM venues.
 - Create token launches on supported launch venues.
 - Sync wallet-owned drafts and watchlists across devices.

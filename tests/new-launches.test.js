@@ -22,3 +22,12 @@ test('new launch feed maps Pons and Clanker launch events newest first', () => {
   assert.equal(rows[1].pair, 'ETH')
   assert.equal(rows[1].creator, B)
 })
+
+test('Orbit events are represented as SPCX perpetual curve launches', () => {
+  const [row] = launchesFromEvents([{ type: 'token.launched', chain: 'spcx', indexedAt: '2026-11-27T12:00:00Z', payload: { args: { token: A, creator: B } } }]);
+  assert.equal(row.chain, 'SPCX Chain');
+  assert.equal(row.network, 'spcx');
+  assert.equal(row.venue, 'Orbit');
+  assert.equal(row.pair, 'SPCX');
+  assert.equal(row.creator, B);
+})

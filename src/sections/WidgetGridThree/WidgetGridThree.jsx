@@ -26,7 +26,7 @@ export default function WidgetGridThree({ workspace, onAction }) {
     return () => { active = false; clearInterval(timer); };
   }, [workspace.settings?.endpoint, eventsRetry]);
   return <section className="workspace-panel" aria-label="Live workspace overview">
-    <div className="panel-header"><div><h2>Live markets</h2><p>Market data from GeckoTerminal for Base and Robinhood Chain.</p></div><button className="button" onClick={() => onAction('launch')}>Prepare a launch</button></div>
+    <div className="panel-header"><div><h2>Live markets</h2><p>Market data from GeckoTerminal for Base and Robinhood Chain; SPCX launch events are shown separately.</p></div><button className="button" onClick={() => onAction('launch')}>Prepare a launch</button></div>
     <MarketBoard chain="Any chain" setChain={() => {}} query="" onSelect={setSelected} layout="list" setLayout={() => {}} filter="Market cap" setFilter={() => {}} data={workspace}/>
     {selected && <div className="empty-state"><h3>{selected.name} ({selected.symbol})</h3><p>{selected.chain} · {selected.pair} · {selected.pool}</p><button className="button" onClick={() => onAction('trade', selected)}>Open trade</button><button className="text-button" onClick={() => setSelected(null)}>Close</button></div>}
     <section className="live-events"><div className="panel-header"><div><h2>Recent onchain events</h2><p>Slipway event index · {eventsUpdated ? `updated ${new Date(eventsUpdated).toLocaleTimeString()}` : eventsLoading ? 'checking status…' : 'not updated yet'}</p></div><span>{events.length} events</span></div>

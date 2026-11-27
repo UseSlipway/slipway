@@ -5,7 +5,7 @@ import { chainIds, checkBackend, getEvents, getPonsProgress, getPoolTrades, getT
 const address = '0x000000000000000000000000000000000000dead'
 
 test('chain identifiers and public address validation are chain-aware', () => {
-  assert.deepEqual(chainIds, { 'Robinhood Chain': 'rhc', Base: 'base' })
+  assert.deepEqual(chainIds, { 'Robinhood Chain': 'rhc', Base: 'base', 'SPCX Chain': 'spcx' })
   assert.equal(isTokenAddress('So11111111111111111111111111111111111111112', 'Solana'), false)
   assert.equal(isTokenAddress(address, 'Base'), true)
   assert.equal(isTokenAddress('invalid', 'Solana'), false)
@@ -29,7 +29,7 @@ test('token amount display keeps six significant digits without clipping long de
 })
 
 test('launch quote request maps UI chain names to numeric EVM chain IDs', async (t) => {
-  assert.deepEqual(launchChainIds, { 'Robinhood Chain': 4663, Base: 8453 })
+  assert.deepEqual(launchChainIds, { 'Robinhood Chain': 4663, Base: 8453, 'SPCX Chain': 46630022 })
   const originalFetch = globalThis.fetch
   t.after(() => { globalThis.fetch = originalFetch })
   const bodies = []

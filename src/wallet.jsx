@@ -13,8 +13,13 @@ export const robinhoodChain = defineChain({
   rpcUrls: { default: { http: ['https://rpc.mainnet.chain.robinhood.com'] } },
   blockExplorers: { default: { name: 'Robinhood Chain Explorer', url: 'https://robinhoodchain.blockscout.com' } },
 });
+export const spcxChain = defineChain({
+  id: 46630022, name: 'SPCX Chain', nativeCurrency: { name: 'SPCX', symbol: 'SPCX', decimals: 18 },
+  rpcUrls: { default: { http: ['https://rpc.spcxchain.network'] } },
+  blockExplorers: { default: { name: 'SPCX Explorer', url: 'https://explorer.spcxchain.network' } },
+});
 const projectId = import.meta.env.VITE_WALLETCONNECT_PROJECT_ID?.trim();
-const walletConfig = { appName: 'Slipway', chains: [base, robinhoodChain], transports: { [base.id]: http(), [robinhoodChain.id]: http() }, ssr: true };
+const walletConfig = { appName: 'Slipway', chains: [base, robinhoodChain, spcxChain], transports: { [base.id]: http(), [robinhoodChain.id]: http(), [spcxChain.id]: http('https://rpc.spcxchain.network') }, ssr: true };
 export const wagmiConfig = projectId
   ? getDefaultConfig({ ...walletConfig, projectId })
   : createConfig({ ...walletConfig, connectors: [injected()] });
