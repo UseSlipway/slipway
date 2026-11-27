@@ -178,3 +178,11 @@
 .launch-cost-rows small{font-size:11px;color:var(--muted);line-height:1.45}
 .launch-cost-muted{font-size:11px!important;color:var(--muted);margin-top:10px;line-height:1.5}
 @media(max-width:599px){.launch-cost-rows>div{grid-template-columns:1fr;gap:4px}}
+.share-card{display:flex;flex-direction:column;gap:12px}
+.share-card-canvas{width:100%;height:auto;aspect-ratio:1200/630;border-radius:14px;border:1px solid var(--line);background:#100609}
+.share-card-actions{display:flex;flex-wrap:wrap;gap:8px}
+.share-card-actions>*{min-height:38px;font-size:12px!important;margin:0;text-decoration:none}
+.share-card-note{font-size:11px!important;color:var(--muted);margin:0}
+.lp-share{margin-top:14px}
+.market-share{margin:0 0 24px;padding:16px;border-radius:18px;border:1px solid var(--line);background:var(--panel)}
+.market-token-actions{flex-wrap:wrap}

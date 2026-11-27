@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { getEvents } from './api';
+import ShareCard from './ShareCard';
 
 export const blankLaunch = { name: '', symbol: '', description: '', chain: 'Robinhood Chain', venue: 'Pons', website: '', telegram: '', x: '', devBuy: '', creatorFeeBps: '0' };
 export const imageTypes = ['image/png', 'image/jpeg', 'image/gif', 'image/webp'];
@@ -135,6 +136,7 @@ export function LaunchConfirmed({ launch, onWatch, onTrade, onWorkspace, onAnoth
           : <span>Not indexed yet. It will appear under Launches in your workspace; the transaction below has the address too.</span>}</dd></div>
       <div><dt>Transaction</dt><dd><code>{launch.hash}</code><span className="lp-confirmed-links"><button type="button" className="lp-text-button" onClick={() => copy(launch.hash, 'hash')}>{copied === 'hash' ? 'Copied' : 'Copy'}</button><a className="lp-text-button" href={explorerUrl(launch.chain, 'tx', launch.hash)} target="_blank" rel="noreferrer">View transaction ↗</a></span></dd></div>
     </dl>
+    {launch.token && <div className="lp-share"><p className="lp-confirmed-next">Share your launch</p><ShareCard launched name={launch.name} symbol={launch.symbol} chain={launch.chain} venue={launch.venue} token={launch.token} image={launch.image} /></div>}
     <p className="lp-confirmed-next">Next steps</p>
     <div className="lp-response-actions lp-confirmed-actions">
       {launch.token && <button type="button" className="lp-secondary" onClick={onWatch} disabled={launch.watched}>{launch.watched ? 'On your watchlist' : 'Add to watchlist'}</button>}
