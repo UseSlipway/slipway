@@ -125,3 +125,20 @@ button.slipway-trending-row:hover{background:var(--soft)}
 .new-launch-trades{display:grid;gap:6px;font-size:11px}
 .new-launch-trades a{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 @media(max-width:600px){.market-feed-tabs{margin-top:12px}.market-feed-tabs>[role=tab]{padding:10px 11px;font-size:13px}.new-launch-card{flex-basis:82vw}}
+.creator-profile{display:flex;flex-direction:column;gap:10px;margin-top:12px}
+.creator-verified{padding:12px 14px;border-radius:14px;border:1px solid #4f9d6955;background:#4f9d6914}
+.creator-verified-badge{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:700;color:#2f6b45}
+.lp[data-theme=dark] .creator-verified-badge{color:#9fdcb3}
+.creator-verified p{margin:8px 0 0;font-size:13px!important;color:var(--ink)!important;line-height:1.5}
+.creator-links{display:flex;flex-wrap:wrap;gap:12px;margin-top:10px}
+.creator-links a{font-size:12px;font-weight:650;color:var(--ink);text-decoration:none}
+.creator-links a:hover{text-decoration:underline}
+.creator-edit{min-height:38px;font-size:12px!important;margin:0}
+.creator-form{display:flex;flex-direction:column;gap:10px;padding:12px;border-radius:14px;border:1px solid var(--line);background:var(--soft)}
+.creator-form label{display:flex;flex-direction:column;gap:6px;font-size:12px}
+.creator-form input,.creator-form textarea{background:var(--panel);border:1px solid var(--line);border-radius:10px;color:var(--ink);padding:9px 11px;font-size:13px;width:100%}
+.creator-form textarea{resize:vertical}
+.creator-form small{color:var(--muted);font-size:10.5px}
+.creator-form-actions{display:flex;gap:8px;justify-content:flex-end;align-items:center}
+.creator-form-actions .lp-primary,.creator-form-actions .lp-secondary{min-height:36px;font-size:12px!important;margin:0}
+.creator-remove{margin-right:auto;font-size:12px;color:#ba4949;text-decoration:underline}

@@ -307,6 +307,31 @@ describe("backend API surface", () => {
     }
   });
 
+  test("creator profiles validate reads and require a wallet session to write", async () => {
+    const token = `0x${"a".repeat(40)}`;
+    const badRead = await apiFetch(`${origin}/v1/creators/profile?chain=solana&token=${token}`);
+    expect(badRead.status).toBe(400);
+    const anonymousWrite = await apiFetch(`${origin}/v1/creators/profile`, {
+      method: "PUT", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ chain: "rhc", token, description: "hi" }),
+    });
+    expect(anonymousWrite.status).toBe(401);
+    const anonymousDelete = await apiFetch(`${origin}/v1/creators/profile?chain=rhc&token=${token}`, { method: "DELETE" });
+    expect(anonymousDelete.status).toBe(401);
+  });
+
+  test("creator profile fields only accept the expected https links", async () => {
+    const { profileSchema } = await import("../src/routes/creatorProfiles");
+    const token = `0x${"a".repeat(40)}`;
+    expect(profileSchema.safeParse({ chain: "rhc", token, x: "https://x.com/slipwaytech", telegram: "https://t.me/slipway", website: "https://tryslipway.com" }).success).toBe(true);
+    expect(profileSchema.safeParse({ chain: "rhc", token, x: "https://evil.example/x.com" }).success).toBe(false);
+    expect(profileSchema.safeParse({ chain: "rhc", token, website: "javascript:alert(1)" }).success).toBe(false);
+    expect(profileSchema.safeParse({ chain: "rhc", token, telegram: "http://t.me/slipway" }).success).toBe(false);
+    expect(profileSchema.safeParse({ chain: "rhc", token, bannerUrl: "https://example.com/a.png" }).success).toBe(false);
+    expect(profileSchema.safeParse({ chain: "rhc", token, description: "x".repeat(281) }).success).toBe(false);
+    expect(profileSchema.safeParse({ chain: "rhc", token, extra: 1 }).success).toBe(false);
+  });
+
   test("validates trending queries before database access", async () => {
     for (const query of ["window=7d", "chain=solana", "limit=0", "limit=31", "limit=abc"]) {
       const response = await apiFetch(`${origin}/v1/trending?${query}`);

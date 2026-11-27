@@ -495,3 +495,39 @@ export async function getCreatorHistory(endpoint, chain, token) {
   })
   return readJson(response)
 }
+
+function profileQuery(chain, token) {
+  if (!['rhc', 'base'].includes(chain) || typeof token !== 'string' || !/^0x[a-fA-F0-9]{40}$/.test(token)) {
+    throw new Error('Provide a supported chain and token address.')
+  }
+  return new URLSearchParams({ chain, token }).toString()
+}
+
+async function profileRequest(endpoint, method, query, session, body) {
+  if (method !== 'GET' && (typeof session !== 'string' || !/^[a-f0-9]{64}$/i.test(session))) {
+    throw new Error('Connect and sign in with the creator wallet first.')
+  }
+  const response = await fetch(apiUrl(apiRoot(endpoint), 'v1/creators/profile', query), {
+    method,
+    credentials: 'omit',
+    headers: { Accept: 'application/json', ...(body ? { 'Content-Type': 'application/json' } : {}), ...(session ? { Authorization: `Bearer ${session}` } : {}) },
+    body: body ? JSON.stringify(body) : undefined,
+    signal: AbortSignal.timeout(15_000),
+  }).catch((error) => {
+    throw new Error(error.name === 'TimeoutError' ? 'Creator profiles took too long to respond.' : 'Could not reach Slipway creator profiles.')
+  })
+  return readJson(response)
+}
+
+export function getCreatorProfile(endpoint, chain, token) {
+  return profileRequest(endpoint, 'GET', profileQuery(chain, token))
+}
+
+export function saveCreatorProfile(endpoint, session, profile) {
+  profileQuery(profile?.chain, profile?.token)
+  return profileRequest(endpoint, 'PUT', '', session, profile)
+}
+
+export function deleteCreatorProfile(endpoint, session, chain, token) {
+  return profileRequest(endpoint, 'DELETE', profileQuery(chain, token), session)
+}

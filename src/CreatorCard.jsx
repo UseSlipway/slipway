@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { getCreatorHistory } from './api';
 import { fetchJSON } from './MarketBoard';
 import { timeAgo } from './GraduatedFeed';
+import CreatorProfile from './CreatorProfile';
 
 const chainId = { 'Robinhood Chain': 'rhc', Base: 'base' };
 const network = { rhc: 'robinhood', base: 'base' };
@@ -20,7 +21,7 @@ export function creatorTags({ launches = 0, graduated = 0, firstLaunchAt, lastLa
   return tags;
 }
 
-export default function CreatorCard({ item, endpoint }) {
+export default function CreatorCard({ item, endpoint, wallet }) {
   const chain = chainId[item?.chain];
   const [state, setState] = useState({ status: 'loading' });
   const [names, setNames] = useState({});
@@ -68,6 +69,7 @@ export default function CreatorCard({ item, endpoint }) {
               <a href={`${explorers[chain]}/address/${data.creator}`} target="_blank" rel="noreferrer">{short(data.creator)} ↗</a>
               <span>launched this {timeAgo(data.launchedAt)}</span>
             </p>
+            <CreatorProfile chain={chain} token={item.token} creator={data.creator} wallet={wallet} endpoint={endpoint} />
             <dl className="creator-stats">
               <div><dt>Launches</dt><dd>{data.launches}{data.capped ? '+' : ''}</dd></div>
               <div><dt>Graduated</dt><dd>{data.graduated}{data.launches ? <small> ({Math.round((data.graduated / data.launches) * 100)}%)</small> : null}</dd></div>
