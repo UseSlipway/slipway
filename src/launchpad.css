@@ -186,3 +186,30 @@
 .lp-share{margin-top:14px}
 .market-share{margin:0 0 24px;padding:16px;border-radius:18px;border:1px solid var(--line);background:var(--panel)}
 .market-token-actions{flex-wrap:wrap}
+
+.lp-compare-cta{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:17px 18px;border:1px solid var(--line);border-radius:14px;background:var(--soft)}
+.lp-compare-cta>div{display:grid;gap:5px;min-width:0}
+.lp-compare-cta strong{font-size:13px}
+.lp-compare-cta span{color:var(--muted);font-size:12px;line-height:1.5}
+.lp-compare-cta button{flex:none}
+.lp-compare-modal{width:min(940px,100%)}
+.lp-compare-cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:20px 0}
+.lp-compare-card{display:flex;flex-direction:column;gap:14px;min-width:0;padding:16px;border:1px solid var(--line);border-radius:16px;background:var(--panel)}
+.lp-compare-card>header{display:flex;align-items:center;gap:10px;min-width:0}
+.lp-compare-card>header img{width:38px;height:38px;flex:none;object-fit:contain;border-radius:10px;background:var(--soft)}
+.lp-compare-card>header div{display:grid;gap:4px;min-width:0}
+.lp-compare-card>header b{font-size:14px}
+.lp-compare-card>header span{color:var(--muted);font-size:11px;line-height:1.4}
+.lp-compare-fees{display:grid;gap:8px;padding-top:12px;border-top:1px solid var(--line)}
+.lp-compare-fees>small,.lp-compare-expiry{color:var(--muted);font-size:10px;line-height:1.5}
+.lp-compare-fees p{display:flex;justify-content:space-between;gap:8px;margin:0;font-size:11px;line-height:1.5}
+.lp-compare-fees p span{color:var(--muted)}
+.lp-compare-fees p b{text-align:right;overflow-wrap:anywhere}
+.lp-compare-requirements,.lp-compare-error p{margin:0;color:var(--muted);font-size:11px;line-height:1.55}
+.lp-compare-card>.lp-primary{width:100%;margin-top:auto}
+.lp-compare-error{padding:12px;border-radius:10px;background:var(--soft)}
+.lp-compare-error b{font-size:12px}
+.lp-compare-error p{margin-top:5px;overflow-wrap:anywhere}
+.lp-compare-expiry{text-align:center}
+.lp-compare-disclaimer{margin:0;color:var(--muted);font-size:11px;line-height:1.6}
+@media(max-width:760px){.lp-compare-cards{grid-template-columns:1fr}.lp-compare-cta{align-items:flex-start;flex-direction:column}.lp-compare-cta button{width:100%}.lp-compare-card{padding:14px}}
