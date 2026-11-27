@@ -166,3 +166,6 @@ button.slipway-trending-row:hover{background:var(--soft)}
 .creator-form-actions{display:flex;gap:8px;justify-content:flex-end;align-items:center}
 .creator-form-actions .lp-primary,.creator-form-actions .lp-secondary{min-height:36px;font-size:12px!important;margin:0}
 .creator-remove{margin-right:auto;font-size:12px;color:#ba4949;text-decoration:underline}
+.quick-amounts{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0 2px}
+.quick-amounts button{height:30px;padding:0 11px;border-radius:999px;border:1px solid var(--line,#ffffff22);background:var(--soft,transparent);font-size:12px;font-weight:600;font-variant-numeric:tabular-nums;color:inherit}
+.quick-amounts button:hover{border-color:var(--accent,#d8b568)}

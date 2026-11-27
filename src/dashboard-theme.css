@@ -108,3 +108,8 @@ body[data-dashboard-theme=dark] .site-header.on-dashboard:not(.menu-open) .menu-
 .dashboard[data-theme=dark] .creator-claimed{color:#9fdcb3}
 .dashboard .creator-claimed a{color:inherit}
 .dashboard .creator-claim-error{display:block;width:100%;font-size:11px;color:#ba4949}
+.dashboard .quick-buy-settings{border:1px solid var(--line);border-radius:14px;padding:14px 16px;margin:18px 0}
+.dashboard .quick-buy-settings legend{font-size:13px;font-weight:650;padding:0 6px}
+.dashboard .quick-buy-settings p{font-size:12px;opacity:.7;margin:0 0 10px}
+.dashboard .quick-buy-settings .form-row.three{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+@media(max-width:599px){.dashboard .quick-buy-settings .form-row.three{grid-template-columns:1fr}}
