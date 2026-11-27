@@ -590,3 +590,16 @@ export async function buildCreatorClaim(endpoint, { chain, wallet, asset }) {
   }
   return build
 }
+
+export async function getLaunchCosts(endpoint, chain) {
+  if (!['rhc', 'base', 'spcx'].includes(chain)) throw new Error('Choose a supported chain.')
+  const response = await fetch(apiUrl(apiRoot(endpoint), 'v1/launch/costs', new URLSearchParams({ chain }).toString()), {
+    method: 'GET',
+    credentials: 'omit',
+    headers: { Accept: 'application/json' },
+    signal: AbortSignal.timeout(15_000),
+  }).catch((error) => {
+    throw new Error(error.name === 'TimeoutError' ? 'Launch costs took too long to load.' : 'Could not reach Slipway launch costs.')
+  })
+  return readJson(response)
+}

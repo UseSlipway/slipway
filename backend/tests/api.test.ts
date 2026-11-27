@@ -358,6 +358,16 @@ describe("backend API surface", () => {
     expect(lower(decodeFunctionData({ abi: clanker, data: encodeFunctionData({ abi: clanker, functionName: "claim", args: [owner, token] }) }).args)).toEqual([owner, token]);
   });
 
+  test("launch costs validate the chain", async () => {
+    for (const chain of ["solana", "", "RHC"]) {
+      const response = await apiFetch(`${origin}/v1/launch/costs?chain=${chain}`);
+      expect(response.status, chain).toBe(400);
+    }
+    const base = await apiFetch(`${origin}/v1/launch/costs?chain=base`);
+    expect(base.status).toBe(200);
+    expect((await base.json()).launchFee).toBe("0");
+  });
+
   test("validates trending queries before database access", async () => {
     for (const query of ["window=7d", "chain=solana", "limit=0", "limit=31", "limit=abc"]) {
       const response = await apiFetch(`${origin}/v1/trending?${query}`);
