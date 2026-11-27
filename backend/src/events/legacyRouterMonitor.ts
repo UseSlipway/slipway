@@ -61,6 +61,7 @@ function isLogRangeLimitError(error: unknown): boolean {
 
 async function scanChain(chain: SlipwayChainId): Promise<void> {
   const config = getChainConfig(chain)!;
+  if (!config.restrictedFeeRouterAddress) return;
   const client = getPublicClient(config);
   const head = await client.getBlockNumber();
   const safeHead = head > 3n ? head - 3n : head;

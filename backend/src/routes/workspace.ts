@@ -7,7 +7,7 @@ export const workspaceRouter = Router();
 const challengeLifetimeMs = 5 * 60_000;
 const sessionLifetimeMs = 7 * 24 * 60 * 60_000;
 const maxWorkspaceBytes = 3_800_000;
-const supportedChains = new Set(["rhc", "base"]);
+const supportedChains = new Set(["rhc", "base", "spcx"]);
 const addressPattern = /^0x[a-fA-F0-9]{40}$/;
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -50,7 +50,7 @@ function validWatch(value: unknown): value is Record<string, unknown> {
 workspaceRouter.post("/challenge", async (request, response) => {
   const wallet = request.body?.wallet;
   const chainId = request.body?.chainId;
-  if (typeof wallet !== "string" || !isAddress(wallet) || ![4663, 8453].includes(chainId)) {
+  if (typeof wallet !== "string" || !isAddress(wallet) || ![4663, 8453, 46630022].includes(chainId)) {
     response.status(400).json({ error: "Provide a valid wallet and supported chain ID" });
     return;
   }

@@ -65,23 +65,32 @@ app.get("/ready/", async (_request, response) => {
   } catch {
     checks.database = "unavailable";
   }
-  for (const id of ["rhc", "base"] as const) {
+  for (const id of ["rhc", "base", "spcx"] as const) {
     const config = getChainConfig(id)!;
     try {
       const { getPublicClient } = await import("./chains/config");
       const client = getPublicClient(config);
-      const [chainId, factoryCode, feeRouterCode] = await Promise.all([
-        client.getChainId(),
-        client.getCode({ address: config.uniswapV3.factory }),
-        client.getCode({ address: getRestrictedFeeRouterAddress(config) })
-      ]);
+      const chainId = await client.getChainId();
       checks[`${id}Rpc`] = chainId === config.chainId ? "ok" : "unavailable";
-      checks[`${id}UniswapV3`] = factoryCode && factoryCode !== "0x" ? "ok" : "unavailable";
-      checks[`${id}FeeRouter`] = feeRouterCode && feeRouterCode !== "0x" ? "ok" : "unavailable";
+      if (config.uniswapV3) {
+        const factoryCode = await client.getCode({ address: config.uniswapV3.factory });
+        checks[`${id}UniswapV3`] = factoryCode && factoryCode !== "0x" ? "ok" : "unavailable";
+      }
+      if (config.restrictedFeeRouterAddress) {
+        const feeRouterCode = await client.getCode({ address: getRestrictedFeeRouterAddress(config) });
+        checks[`${id}FeeRouter`] = feeRouterCode && feeRouterCode !== "0x" ? "ok" : "unavailable";
+      }
+      if (config.orbit && config.stoxswap) {
+        const contracts = await Promise.all([config.orbit.factory, config.orbit.engine, config.orbit.poolImplementation, config.orbit.vault, config.stoxswap.factory, config.stoxswap.router, config.stoxswap.wrappedNative].map((address) => client.getCode({ address })));
+        checks[`${id}Orbit`] = contracts.slice(0, 4).every((code) => Boolean(code && code !== "0x")) ? "ok" : "unavailable";
+        checks[`${id}StoxSwap`] = contracts.slice(4).every((code) => Boolean(code && code !== "0x")) ? "ok" : "unavailable";
+      }
     } catch {
       checks[`${id}Rpc`] = "unavailable";
-      checks[`${id}UniswapV3`] = "unavailable";
-      checks[`${id}FeeRouter`] = "unavailable";
+      if (config.uniswapV3) checks[`${id}UniswapV3`] = "unavailable";
+      if (config.restrictedFeeRouterAddress) checks[`${id}FeeRouter`] = "unavailable";
+      if (config.orbit) checks[`${id}Orbit`] = "unavailable";
+      if (config.stoxswap) checks[`${id}StoxSwap`] = "unavailable";
     }
   }
   const ready = Object.values(checks).every((status) => status === "ok");
@@ -91,7 +100,7 @@ app.use("/v1/workspace", workspaceRouter);
 app.use("/v1", mediaRouter);
 app.use("/v1", apiRouter);
 app.get("/v1/chains", (_request, response) => {
-  response.json(["rhc", "base"].map((id) => publicChainConfig(getChainConfig(id)!)));
+  response.json(["rhc", "base", "spcx"].map((id) => publicChainConfig(getChainConfig(id)!)));
 });
 app.use("/v1/tokens", tokenRouter);
 app.use("/v1", tradeRouter);

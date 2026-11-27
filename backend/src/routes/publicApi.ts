@@ -14,7 +14,7 @@ publicApiRouter.get("/", (_request, response) => {
   response.json({ name: "Slipway Public API", version: "v1", authentication: "Bearer API key", rateLimit: "120 requests per minute" });
 });
 publicApiRouter.get("/chains", (_request, response) => {
-  response.json(["rhc", "base"].map((id) => publicChainConfig(getChainConfig(id)!)));
+  response.json(["rhc", "base", "spcx"].map((id) => publicChainConfig(getChainConfig(id)!)));
 });
 publicApiRouter.use("/tokens", tokenRouter);
 publicApiRouter.use("/market", marketRouter);

@@ -15,7 +15,7 @@ eventRouter.get("/", async (request, response) => {
   if (typeof afterRaw !== "string" || !/^\d{1,18}$/.test(afterRaw)
     || typeof limitRaw !== "string" || !/^\d{1,3}$/.test(limitRaw)
     || Number(limitRaw) < 1 || Number(limitRaw) > 500
-    || (chain !== undefined && chain !== "base" && chain !== "rhc")
+    || (chain !== undefined && chain !== "base" && chain !== "rhc" && chain !== "spcx")
     || (wallet !== undefined && (typeof wallet !== "string" || !/^0x[a-fA-F0-9]{40}$/.test(wallet)))
     || (typesRaw !== undefined && typeof typesRaw !== "string")
     || (order !== undefined && order !== "asc" && order !== "desc")) {
@@ -39,6 +39,7 @@ eventRouter.get("/", async (request, response) => {
       const walletParam = `$${values.length}`;
       sql += ` AND (lower(payload->'args'->>'deployer') = ${walletParam}
         OR lower(payload->'args'->>'tokenAdmin') = ${walletParam}
+        OR lower(payload->'args'->>'creator') = ${walletParam}
         OR lower(payload->'args'->>'msgSender') = ${walletParam})`;
     }
     values.push(Number(limitRaw));
@@ -56,11 +57,11 @@ eventRouter.get("/", async (request, response) => {
 // Creator reputation for a token: who launched it (from the indexed launch event) and how their
 // other indexed launches went. Only public onchain data; counts start when Slipway began indexing.
 const tokenExpr = "lower(coalesce(payload->'args'->>'token', payload->'args'->>'tokenAddress'))";
-const creatorExpr = "lower(coalesce(payload->'args'->>'deployer', payload->'args'->>'tokenAdmin'))";
+const creatorExpr = "lower(coalesce(payload->'args'->>'deployer', payload->'args'->>'tokenAdmin', payload->'args'->>'creator'))";
 eventRouter.get("/creator", async (request, response) => {
   const chain = request.query.chain;
   const token = request.query.token;
-  if ((chain !== "rhc" && chain !== "base") || typeof token !== "string" || !/^0x[a-fA-F0-9]{40}$/.test(token)) {
+  if ((chain !== "rhc" && chain !== "base" && chain !== "spcx") || typeof token !== "string" || !/^0x[a-fA-F0-9]{40}$/.test(token)) {
     response.status(400).json({ error: "Provide a supported chain and token address" });
     return;
   }

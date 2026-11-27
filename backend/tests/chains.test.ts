@@ -1,12 +1,18 @@
 import { describe, expect, test } from "bun:test";
 import { getChainConfig, publicChainConfig, UNISWAP_V3_FEES } from "../src/chains/config";
 
-describe("Base and Robinhood Chain configuration", () => {
+describe("supported EVM chain configuration", () => {
   test("publishes the supported chain IDs and verified Uniswap deployments", () => {
     const rhc = getChainConfig("rhc");
     const base = getChainConfig("base");
+    const spcx = getChainConfig("spcx");
     expect(rhc?.chainId).toBe(4663);
     expect(base?.chainId).toBe(8453);
+    expect(spcx?.chainId).toBe(46630022);
+    expect(spcx?.nativeCurrency.symbol).toBe("SPCX");
+    expect(spcx?.orbit?.factory).toBe("0xc79e983385d6ef11a1d50a8f9807d2968cd6e8fa");
+    expect(spcx?.stoxswap?.router).toBe("0x17c99670aa52e1dd9912b7d150020a01b5707f79");
+    expect(publicChainConfig(spcx!).protocols.slipwayFeeRouter).toBeUndefined();
     expect(rhc?.uniswapV3.factory).toBe("0x1f7d7550b1b028f7571e69a784071f0205fd2efa");
     expect(base?.uniswapV3.factory).toBe("0x33128a8fc17869897dce68ed026d694621f6fdfd");
     expect(rhc?.uniswapV4.poolManager).toBe("0x8366a39cc670b4001a1121b8f6a443a643e40951");

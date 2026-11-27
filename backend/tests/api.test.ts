@@ -33,11 +33,11 @@ describe("backend API surface", () => {
     expect(wrongKey.status).toBe(401);
   });
 
-  test("lists Base and Robinhood Chain only", async () => {
+  test("lists every supported EVM chain", async () => {
     const response = await apiFetch(`${origin}/v1/chains`);
     expect(response.status).toBe(200);
     const chains = await response.json() as Array<{ id: string; chainId: number }>;
-    expect(chains.map((chain) => [chain.id, chain.chainId])).toEqual([["rhc", 4663], ["base", 8453]]);
+    expect(chains.map((chain) => [chain.id, chain.chainId])).toEqual([["rhc", 4663], ["base", 8453], ["spcx", 46630022]]);
   });
 
   test("rejects unsupported chains and malformed EVM addresses", async () => {

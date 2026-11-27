@@ -5,16 +5,18 @@ import { scanLegacyRouterActivity } from "./legacyRouterMonitor";
 
 const ponsFactory = "0x7ed598bcef8bd9edd8c97a195c6d13f40801ec7e" as Address;
 const clankerV4Factory = "0xe85a59c628f7d27878aceb4bf3b35733630083a9" as Address;
+const orbitLaunch = parseAbiItem("event TokenLaunched(address indexed token, address indexed pool, address indexed creator, bytes32 salt, uint256 supply, string metadata)");
 const ponsLaunch = parseAbiItem("event TokenLaunched(address indexed token, address indexed curve, address indexed deployer, address pairToken, uint256 launchConfigId, uint256 graduationThreshold)");
 const ponsGraduation = parseAbiItem("event PoolGraduated(address indexed token, uint256 positionId, uint256 tokenAmount, uint256 pairTokenAmount)");
 const clankerLaunch = parseAbiItem("event TokenCreated(address msgSender, address indexed tokenAddress, address indexed tokenAdmin, string tokenImage, string tokenName, string tokenSymbol, string tokenMetadata, string tokenContext, int24 startingTick, address poolHook, bytes32 poolId, address pairedToken, address locker, address mevModule, uint256 extensionsSupply, address[] extensions)");
 const v4Initialize = parseAbiItem("event Initialize(bytes32 indexed id, address indexed currency0, address indexed currency1, uint24 fee, int24 tickSpacing, address hooks, uint160 sqrtPriceX96, int24 tick)");
 const maxLogRange = 100n;
-const sources: Array<{ id: string; chain: SlipwayChainId; address: Address; events: Array<{ event: typeof ponsLaunch | typeof ponsGraduation | typeof clankerLaunch | typeof v4Initialize; type: string }> }> = [
+const sources: Array<{ id: string; chain: SlipwayChainId; address: Address; events: Array<{ event: typeof ponsLaunch | typeof ponsGraduation | typeof clankerLaunch | typeof v4Initialize | typeof orbitLaunch; type: string }> }> = [
   { id: "pons-v2-rhc", chain: "rhc", address: ponsFactory, events: [{ event: ponsLaunch, type: "token.launched" }, { event: ponsGraduation, type: "pool.graduated" }] },
   { id: "clanker-v4-base", chain: "base", address: clankerV4Factory, events: [{ event: clankerLaunch, type: "token.launched" }] },
   { id: "uniswap-v4-pools-base", chain: "base", address: getAddress("0x498581ff718922c3f8e6a244956af099b2652b2b"), events: [{ event: v4Initialize, type: "pool.initialized" }] },
   { id: "uniswap-v4-pools-rhc", chain: "rhc", address: getAddress("0x8366a39cc670b4001a1121b8f6a443a643e40951"), events: [{ event: v4Initialize, type: "pool.initialized" }] },
+  { id: "orbit-launchpad-spcx", chain: "spcx", address: getAddress("0xc79e983385d6ef11a1d50a8f9807d2968cd6e8fa"), events: [{ event: orbitLaunch, type: "token.launched" }] },
 ];
 
 function jsonSafe(value: unknown): unknown {
@@ -24,7 +26,7 @@ function jsonSafe(value: unknown): unknown {
 function errorSummary(error: unknown) {
   const value = error instanceof Error ? error : new Error(String(error));
   const cause = value.cause instanceof Error ? value.cause : undefined;
-  const urls = [process.env.RHC_RPC_URL, process.env.BASE_RPC_URL].filter((url): url is string => Boolean(url));
+  const urls = [process.env.RHC_RPC_URL, process.env.BASE_RPC_URL, process.env.SPCX_RPC_URL].filter((url): url is string => Boolean(url));
   const redact = (message: string) => urls.reduce((clean, url) => clean.replaceAll(url, "[RPC_URL]"), message).replace(/https?:\/\/\S+/g, "[RPC_URL]").slice(0, 300);
   return {
     errorType: value.name,
@@ -35,7 +37,7 @@ function errorSummary(error: unknown) {
   };
 }
 
-async function getLogsWithRangeFallback(source: typeof sources[number], event: typeof ponsLaunch | typeof ponsGraduation | typeof clankerLaunch | typeof v4Initialize, fromBlock: bigint, toBlock: bigint): Promise<Log[]> {
+async function getLogsWithRangeFallback(source: typeof sources[number], event: typeof ponsLaunch | typeof ponsGraduation | typeof clankerLaunch | typeof v4Initialize | typeof orbitLaunch, fromBlock: bigint, toBlock: bigint): Promise<Log[]> {
   const client = getPublicClient(getChainConfig(source.chain)!);
   try {
     return await client.getLogs({ address: source.address, event, fromBlock, toBlock }) as Log[];
@@ -129,7 +131,7 @@ async function storeLogs(source: typeof sources[number], logsByType: Array<{ typ
 // Historical backfill: walk backwards from where live indexing began to the factory's deployment
 // block, one chunk per poll, so creator history and graduations cover every launch ever made.
 // Only Pons on Robinhood Chain is backfilled; Clanker on Base launches far too many tokens to store.
-const backfillSources = new Set(["pons-v2-rhc"]);
+const backfillSources = new Set(["pons-v2-rhc", "orbit-launchpad-spcx"]);
 const backfillChunk = new Map<string, bigint>();
 // The live indexer's RPC provider caps eth_getLogs at about 100 blocks, which would take weeks to
 // walk back through history. The backfill uses its own RPC (Robinhood Chain's public endpoint by

@@ -10,7 +10,7 @@ export const tradeRouter = Router();
 // Trading uses the restricted routers deployed on both supported chains. Set the flag to
 // "false" to pause trading without changing the deployment.
 function tradingEnabled() { return process.env.SLIPWAY_TRADING_ENABLED !== "false"; }
-const quoteSchema = z.object({ chain: z.enum(["rhc", "base"]), token: z.string().refine(isAddress), side: z.enum(["buy", "sell"]), amount: z.union([z.string(), z.number()]), amountType: z.literal("in").optional(), quoteAsset: z.string().optional(), slippageBps: z.number().int().min(0).max(5000) }).strict();
+const quoteSchema = z.object({ chain: z.enum(["rhc", "base", "spcx"]), token: z.string().refine(isAddress), side: z.enum(["buy", "sell"]), amount: z.union([z.string(), z.number()]), amountType: z.literal("in").optional(), quoteAsset: z.string().optional(), slippageBps: z.number().int().min(0).max(5000) }).strict();
 const amountSchema = z.string().regex(/^(?:\d+)(?:\.\d+)?$/).max(78);
 const PROTOCOL_FEE_BPS = 20;
 const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000" as Address;
@@ -42,14 +42,34 @@ const ponsCurveAbi = parseAbi([
   "function currentSnipeTaxBps(address recipient) view returns (uint256)",
   "function buy(uint256 quoteIn, uint256 minTokensOut, address recipient) payable returns (uint256 tokensOut)"
 ]);
+const orbitFactoryAbi = parseAbi([
+  "function isToken(address token) view returns (bool)",
+  "function launches(address token) view returns (address creator,address pool,uint256 createdAt,string metadata)"
+]);
+const orbitCurveAbi = parseAbi([
+  "function quoteBuy(uint256 spcxIn) view returns (uint256 tokensOut,uint256 netSPCX,uint256 creatorFee,uint256 protocolFee)",
+  "function quoteSell(uint256 tokensIn) view returns (uint256 spcxOut,uint256 grossSPCX,uint256 creatorFee,uint256 protocolFee)",
+  "function buy(address recipient,uint256 minimumTokens,uint256 deadline) payable",
+  "function sell(uint256 tokensIn,uint256 minimumSPCX,address recipient,uint256 deadline)"
+]);
+const stoxFactoryAbi = parseAbi(["function getPair(address tokenA,address tokenB) view returns (address pair)"]);
+const stoxPairAbi = parseAbi([
+  "function token0() view returns (address)", "function token1() view returns (address)",
+  "function getReserves() view returns (uint112 reserve0,uint112 reserve1,uint32 blockTimestampLast)"
+]);
+const stoxRouterAbi = parseAbi([
+  "function swapExactETHForTokens(uint256 amountOutMin,address[] path,address to,uint256 deadline) payable returns (uint256[] amounts)",
+  "function swapExactTokensForETH(uint256 amountIn,uint256 amountOutMin,address[] path,address to,uint256 deadline) returns (uint256[] amounts)"
+]);
 const ponsFactory = getAddress("0x7ed598bcef8bd9edd8c97a195c6d13f40801ec7e");
 const ponsMemeHook = getAddress("0xe5e702641ea86f4ae6cc3cdaed2b886f976be044");
 const BPS = 10_000n;
 function normalizeAddress(address: string): Address { return getAddress(address.toLowerCase()); }
 function isAddressValue(address: string): boolean { return /^0x[a-fA-F0-9]{40}$/.test(address); }
-export function tradeChainId(value: unknown): "rhc" | "base" | null {
+export function tradeChainId(value: unknown): "rhc" | "base" | "spcx" | null {
   if (value === "rhc" || value === 4663) return "rhc";
   if (value === "base" || value === 8453) return "base";
+  if (value === "spcx" || value === 46630022) return "spcx";
   return null;
 }
 
@@ -90,7 +110,7 @@ tradeRouter.post("/quote", async (request, response) => {
   if (requestedQuoteAsset && !exactAsset) { response.status(400).json({ error: "Unsupported quote asset for this chain" }); return; }
   const quoteAssets = config.quoteAssets.filter((asset) => asset.address.toLowerCase() !== token.toLowerCase() && (!exactAsset || asset.address === exactAsset.address));
   if (!quoteAssets.length) { response.status(400).json({ error: "Token cannot be traded against the selected quote asset" }); return; }
-  if (!tradingEnabled()) { response.status(503).json({ error: "Trading is temporarily paused while the execution contracts are being upgraded" }); return; }
+  if (!tradingEnabled() && config.id !== "spcx") { response.status(503).json({ error: "Trading is temporarily paused while the execution contracts are being upgraded" }); return; }
 
   try {
     if (await consumeDatabaseRateLimit("trade-quote", clientRateSubject(request), 30, 60)) {
@@ -110,6 +130,68 @@ tradeRouter.post("/quote", async (request, response) => {
     let grossAmount: bigint;
     try { grossAmount = parseUnits(amountText, amountDecimals); }
     catch { response.status(400).json({ error: "Trade amount has too many decimal places" }); return; }
+    if (config.id === "spcx") {
+      const settings = config.orbit && config.stoxswap;
+      if (!settings) { response.status(503).json({ error: "SPCX trading venues are not configured" }); return; }
+      const [isOrbitToken, launchInfo] = await Promise.all([
+        client.readContract({ address: settings.factory, abi: orbitFactoryAbi, functionName: "isToken", args: [token] }),
+        client.readContract({ address: settings.factory, abi: orbitFactoryAbi, functionName: "launches", args: [token] }).catch(() => null)
+      ]);
+      let venue = ""; let pool: Address | "" = ""; let amountOut = 0n; let gasEstimate = 0n; let feeDescription = "";
+      if (isOrbitToken && launchInfo && launchInfo[1] !== ZERO_ADDRESS) {
+        pool = launchInfo[1];
+        if (input.side === "buy") {
+          const q = await client.readContract({ address: pool, abi: orbitCurveAbi, functionName: "quoteBuy", args: [grossAmount] });
+          amountOut = q[0];
+          feeDescription = `Orbit curve fees (${formatUnits(q[2] + q[3], 18)} SPCX, included in quote)`;
+        } else {
+          const q = await client.readContract({ address: pool, abi: orbitCurveAbi, functionName: "quoteSell", args: [grossAmount] });
+          amountOut = q[0];
+          feeDescription = `Orbit curve fees (${formatUnits(q[2] + q[3], 18)} SPCX, included in quote)`;
+        }
+        venue = "orbit-curve";
+      } else {
+        const pair = await client.readContract({ address: settings.factory, abi: stoxFactoryAbi, functionName: "getPair", args: [token, settings.wrappedNative] });
+        if (pair !== ZERO_ADDRESS) {
+          const [token0, reserves] = await Promise.all([
+            client.readContract({ address: pair, abi: stoxPairAbi, functionName: "token0" }),
+            client.readContract({ address: pair, abi: stoxPairAbi, functionName: "getReserves" })
+          ]);
+          const tokenIs0 = token0.toLowerCase() === token.toLowerCase();
+          const reserveToken = tokenIs0 ? reserves[0] : reserves[1];
+          const reserveNative = tokenIs0 ? reserves[1] : reserves[0];
+          const reserveIn = input.side === "buy" ? reserveNative : reserveToken;
+          const reserveOut = input.side === "buy" ? reserveToken : reserveNative;
+          const amountWithFee = grossAmount * 997n;
+          amountOut = reserveIn && reserveOut ? amountWithFee * reserveOut / (reserveIn * 1000n + amountWithFee) : 0n;
+          pool = pair; venue = "stoxswap-v2"; feeDescription = "StoxSwap pool fee (0.30%, included in quote)";
+        }
+      }
+      if (!venue || amountOut <= 0n) { response.status(404).json({ error: "No quotable Orbit curve or StoxSwap pool found for this token" }); return; }
+      const amountOutMin = calculateMinimumOutput(amountOut, input.slippageBps);
+      if (amountOutMin <= 0n) { response.status(400).json({ error: "Trade amount is too small to protect the minimum output" }); return; }
+      const expiresAt = new Date(Date.now() + 30_000).toISOString();
+      const inputDecimals = input.side === "buy" ? 18 : decimals;
+      const outputDecimals = input.side === "buy" ? decimals : 18;
+      const quote = {
+        id: randomUUID(), chain: "spcx", chainId: config.chainId, token, tokenName: name, tokenSymbol: symbol,
+        side: input.side, amountIn: amountText, amountInRaw: grossAmount.toString(), venueAmountInRaw: grossAmount.toString(),
+        expectedOut: formatUnits(amountOut, outputDecimals), minOut: formatUnits(amountOutMin, outputDecimals),
+        amountOutRaw: amountOut.toString(), amountOutMinRaw: amountOutMin.toString(),
+        assetIn: input.side === "buy" ? "SPCX" : String(symbol), assetOut: input.side === "buy" ? String(symbol) : "SPCX",
+        inputToken: input.side === "buy" ? settings.wrappedNative : token, outputToken: input.side === "buy" ? token : settings.wrappedNative,
+        inputDecimals, outputDecimals, inputSymbol: input.side === "buy" ? "SPCX" : String(symbol), outputSymbol: input.side === "buy" ? String(symbol) : "SPCX",
+        quoteAsset: "SPCX", pool, poolFee: venue === "stoxswap-v2" ? 30 : 0, venue, priceImpactBps: null, slippageBps: input.slippageBps,
+        feeLines: [{ kind: feeDescription, amount: "included", asset: "SPCX" }], eligibility: { eligible: true, reason: null },
+        simulation: { ok: true, method: venue === "orbit-curve" ? "Orbit curve quote" : "StoxSwap V2 reserve quote", gasEstimate: gasEstimate.toString() },
+        warnings: ["SPCX trades execute directly against the selected venue; Slipway does not take a protocol fee on this chain."], expiresAt
+      };
+      const { db } = await import("../db/index");
+      await db.query("DELETE FROM trade_quotes WHERE expires_at < now()");
+      await db.query("INSERT INTO trade_quotes (id, chain, token_address, side, quote, expires_at) VALUES ($1, $2, $3, $4, $5::jsonb, $6)", [quote.id, config.id, token.toLowerCase(), input.side, JSON.stringify(quote), expiresAt]);
+      response.setHeader("Cache-Control", "no-store").json(quote);
+      return;
+    }
     const protocolFee = calculateProtocolFee(grossAmount);
     const netAmount = grossAmount - protocolFee;
     if (netAmount <= 0n) { response.status(400).json({ error: "Trade amount is too small after the protocol fee" }); return; }
@@ -118,12 +200,12 @@ tradeRouter.post("/quote", async (request, response) => {
       try {
         const tokenIn = input.side === "buy" ? asset.address : token;
         const tokenOut = input.side === "buy" ? token : asset.address;
-        const pool = await client.readContract({ address: config.uniswapV3.factory, abi: v3FactoryAbi, functionName: "getPool", args: [tokenIn, tokenOut, fee] });
+        const pool = await client.readContract({ address: config.uniswapV3!.factory, abi: v3FactoryAbi, functionName: "getPool", args: [tokenIn, tokenOut, fee] });
         if (pool === ZERO_ADDRESS) return null;
         const liquidity = await client.readContract({ address: pool, abi: v3PoolAbi, functionName: "liquidity" });
         if (liquidity === 0n) return null;
         const callData = encodeFunctionData({ abi: quoteAbi, functionName: "quoteExactInputSingle", args: [{ tokenIn, tokenOut, amountIn: netAmount, fee, sqrtPriceLimitX96: 0n }] });
-        const response = await client.call({ to: config.uniswapV3.quoter, data: callData });
+        const response = await client.call({ to: config.uniswapV3!.quoter, data: callData });
         if (!response.data) return null;
         const result = decodeFunctionResult({ abi: quoteAbi, functionName: "quoteExactInputSingle", data: response.data });
         const amountOut = result[0] as bigint;
@@ -143,7 +225,7 @@ tradeRouter.post("/quote", async (request, response) => {
         const poolKey = { currency0, currency1, fee, tickSpacing, hooks: ZERO_ADDRESS };
         const zeroForOne = tokenIn.toLowerCase() === currency0.toLowerCase();
         const result = await client.readContract({
-          address: config.uniswapV4.quoter, abi: v4QuoteAbi, functionName: "quoteExactInputSingle",
+          address: config.uniswapV4!.quoter, abi: v4QuoteAbi, functionName: "quoteExactInputSingle",
           args: [{ poolKey, zeroForOne, exactAmount: netAmount, hookData: "0x" }]
         });
         if (result[0] === 0n) return null;
@@ -170,7 +252,7 @@ tradeRouter.post("/quote", async (request, response) => {
             if (!args?.currency0 || !args.currency1 || !args.hooks || args.fee === undefined || args.tickSpacing === undefined) return null;
             const poolKey = { currency0: getAddress(String(args.currency0)), currency1: getAddress(String(args.currency1)), fee: Number(args.fee), tickSpacing: Number(args.tickSpacing), hooks: getAddress(String(args.hooks)) };
             const zeroForOne = tokenIn.toLowerCase() === poolKey.currency0.toLowerCase();
-            const result = await client.readContract({ address: config.uniswapV4.quoter, abi: v4QuoteAbi, functionName: "quoteExactInputSingle", args: [{ poolKey, zeroForOne, exactAmount: netAmount, hookData: "0x" }] });
+            const result = await client.readContract({ address: config.uniswapV4!.quoter, abi: v4QuoteAbi, functionName: "quoteExactInputSingle", args: [{ poolKey, zeroForOne, exactAmount: netAmount, hookData: "0x" }] });
             if (result[0] === 0n) return null;
             const nativeInput = (zeroForOne ? poolKey.currency0 : poolKey.currency1) === ZERO_ADDRESS && tokenIn.toLowerCase() === config.wrappedNative.toLowerCase();
             const nativeOutput = (zeroForOne ? poolKey.currency1 : poolKey.currency0) === ZERO_ADDRESS && tokenOut.toLowerCase() === config.wrappedNative.toLowerCase();
@@ -191,7 +273,7 @@ tradeRouter.post("/quote", async (request, response) => {
             const [currency0, currency1] = [ZERO_ADDRESS, token];
             const poolKey = { currency0, currency1, fee: launch.poolFee, tickSpacing: Number(launch.tickSpacing), hooks: ponsMemeHook };
             const zeroForOne = input.side === "buy";
-            const result = await client.readContract({ address: config.uniswapV4.quoter, abi: v4QuoteAbi, functionName: "quoteExactInputSingle", args: [{ poolKey, zeroForOne, exactAmount: netAmount, hookData: "0x" }] });
+            const result = await client.readContract({ address: config.uniswapV4!.quoter, abi: v4QuoteAbi, functionName: "quoteExactInputSingle", args: [{ poolKey, zeroForOne, exactAmount: netAmount, hookData: "0x" }] });
             if (result[0] === 0n) return null;
             return { asset, quoteIndex: quoteAssets.indexOf(asset), fee: launch.poolFee, pool: "pons-v2-uniswap-v4", tokenIn, tokenOut, amountOut: result[0], gasEstimate: result[3], protocol: "uniswap-v4" as const, poolKey, zeroForOne, nativeInput: input.side === "buy", nativeOutput: input.side === "sell", ponsHookFeeBps: Number(feePolicy.hookFeeBps), ponsCreatorTaxBps: Number(launch.creatorTaxBps) };
           } catch { return null; }
@@ -274,9 +356,12 @@ tradeRouter.post("/quote", async (request, response) => {
 tradeRouter.post("/build/trade", async (request, response) => {
   const parsed = z.object({ quoteId: z.string().uuid(), wallet: z.string().refine(isAddress), accountKind: z.literal("eoa") }).strict().safeParse(request.body);
   if (!parsed.success) { response.status(400).json({ error: "Invalid unsigned trade build request" }); return; }
-  if (!tradingEnabled()) { response.status(503).json({ error: "Trading is temporarily paused while the execution contracts are being upgraded" }); return; }
   try {
     const { db } = await import("../db/index");
+    if (!tradingEnabled()) {
+      const chain = await db.query<{ chain: string }>("SELECT chain FROM trade_quotes WHERE id = $1", [parsed.data.quoteId]);
+      if (chain.rows[0]?.chain !== "spcx") { response.status(503).json({ error: "Trading is temporarily paused while the execution contracts are being upgraded" }); return; }
+    }
     const stored = await db.query<{ quote: Record<string, unknown>; expires_at: Date }>("SELECT quote, expires_at FROM trade_quotes WHERE id = $1", [parsed.data.quoteId]);
     const record = stored.rows[0];
     if (!record) { response.status(404).json({ error: "Quote not found or expired; request a fresh quote" }); return; }
@@ -285,6 +370,34 @@ tradeRouter.post("/build/trade", async (request, response) => {
     const quote = record.quote;
     const config = getChainConfig(tradeChainId(quote.chain) ?? "");
     if (!config) { response.status(400).json({ error: "Quote chain is unsupported" }); return; }
+    if (!tradingEnabled() && config.id !== "spcx") { response.status(503).json({ error: "Trading is temporarily paused while the execution contracts are being upgraded" }); return; }
+    const wallet = getAddress(parsed.data.wallet);
+    if (config.id === "spcx") {
+      const token = getAddress(String(quote.token));
+      const amountIn = BigInt(String(quote.amountInRaw));
+      const amountOutMin = BigInt(String(quote.amountOutMinRaw));
+      const deadline = BigInt(Math.floor(Date.now() / 1000) + 120);
+      const payloads: Array<Record<string, string | number>> = [];
+      if (quote.venue === "orbit-curve") {
+        const curve = getAddress(String(quote.pool));
+        if (quote.side === "buy") {
+          payloads.push({ kind: "evm_transaction", purpose: "buy_on_orbit_curve", chainId: config.chainId, from: wallet, to: curve, value: `0x${amountIn.toString(16)}`, data: encodeFunctionData({ abi: orbitCurveAbi, functionName: "buy", args: [wallet, amountOutMin, deadline] }) });
+        } else {
+          payloads.push({ kind: "evm_transaction", purpose: "approve_orbit_curve", chainId: config.chainId, from: wallet, to: token, value: "0x0", data: encodeFunctionData({ abi: erc20WriteAbi, functionName: "approve", args: [curve, amountIn] }) });
+          payloads.push({ kind: "evm_transaction", purpose: "sell_on_orbit_curve", chainId: config.chainId, from: wallet, to: curve, value: "0x0", data: encodeFunctionData({ abi: orbitCurveAbi, functionName: "sell", args: [amountIn, amountOutMin, wallet, deadline] }) });
+        }
+      } else if (quote.venue === "stoxswap-v2" && config.stoxswap) {
+        const path = quote.side === "buy" ? [config.stoxswap.wrappedNative, token] : [token, config.stoxswap.wrappedNative];
+        if (quote.side === "buy") {
+          payloads.push({ kind: "evm_transaction", purpose: "buy_on_stoxswap", chainId: config.chainId, from: wallet, to: config.stoxswap.router, value: `0x${amountIn.toString(16)}`, data: encodeFunctionData({ abi: stoxRouterAbi, functionName: "swapExactETHForTokens", args: [amountOutMin, path, wallet, deadline] }) });
+        } else {
+          payloads.push({ kind: "evm_transaction", purpose: "approve_stoxswap", chainId: config.chainId, from: wallet, to: token, value: "0x0", data: encodeFunctionData({ abi: erc20WriteAbi, functionName: "approve", args: [config.stoxswap.router, amountIn] }) });
+          payloads.push({ kind: "evm_transaction", purpose: "sell_on_stoxswap", chainId: config.chainId, from: wallet, to: config.stoxswap.router, value: "0x0", data: encodeFunctionData({ abi: stoxRouterAbi, functionName: "swapExactTokensForETH", args: [amountIn, amountOutMin, path, wallet, deadline] }) });
+        }
+      } else { response.status(400).json({ error: "Unsupported SPCX trade venue" }); return; }
+      response.setHeader("Cache-Control", "no-store").json({ buildId: randomUUID(), quoteId: parsed.data.quoteId, chain: config.id, chainId: config.chainId, wallet, expiresAt: record.expires_at, payloads });
+      return;
+    }
     const isPonsCurve = quote.venue === "pons-curve";
     const isV4 = quote.venue === "uniswap-v4";
     const feeRouter = getRestrictedFeeRouterAddress(config);
@@ -318,7 +431,7 @@ tradeRouter.post("/build/trade", async (request, response) => {
       const v4SwapInput = encodeAbiParameters([{ type: "bytes" }, { type: "bytes[]" }], [actions, actionParams]);
       const venueCall = encodeFunctionData({ abi: universalRouterV4Abi, functionName: "execute", args: ["0x10", [v4SwapInput], BigInt(Math.floor(Date.now() / 1000) + 120)] });
       const exactInParams = {
-        tokenIn, tokenOut, venue: config.uniswapV4.universalRouter, amountIn, amountOutMin,
+        tokenIn, tokenOut, venue: config.uniswapV4!.universalRouter, amountIn, amountOutMin,
         protocolFeeBps: PROTOCOL_FEE_BPS, integratorFeeBps: 0, integratorRecipient: ZERO_ADDRESS
       };
       feeCall = quote.nativeInput || quote.nativeOutput
@@ -331,11 +444,10 @@ tradeRouter.post("/build/trade", async (request, response) => {
         amountOutMinimum: amountOutMin, sqrtPriceLimitX96: 0n
       }] });
       feeCall = encodeFunctionData({ abi: feeRouterAbi, functionName: "executeExactIn", args: [{
-        tokenIn, tokenOut, venue: config.uniswapV3.swapRouter, amountIn, amountOutMin,
+        tokenIn, tokenOut, venue: config.uniswapV3!.swapRouter, amountIn, amountOutMin,
         protocolFeeBps: PROTOCOL_FEE_BPS, integratorFeeBps: 0, integratorRecipient: ZERO_ADDRESS
       }, venueCall] });
     }
-    const wallet = getAddress(parsed.data.wallet);
     response.setHeader("Cache-Control", "no-store");
     const payloads = [
         ...(isPonsCurve ? [{ kind: "evm_transaction", purpose: "wrap_native_input", chainId: config.chainId, from: wallet, to: config.wrappedNative, value: `0x${amountIn.toString(16)}`, data: encodeFunctionData({ abi: wethDepositAbi, functionName: "deposit" }) }] : []),

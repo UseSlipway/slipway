@@ -1,29 +1,32 @@
 import { createPublicClient, defineChain, http, type Address, type PublicClient } from "viem";
 
-export type SlipwayChainId = "rhc" | "base";
+export type SlipwayChainId = "rhc" | "base" | "spcx";
 
 export interface ChainConfig {
   id: SlipwayChainId;
   name: string;
   chainId: number;
-  rpcEnv: "RHC_RPC_URL" | "BASE_RPC_URL";
+  rpcEnv: "RHC_RPC_URL" | "BASE_RPC_URL" | "SPCX_RPC_URL";
+  nativeCurrency: { name: string; symbol: string; decimals: number };
   wrappedNative: Address;
   quoteAssets: Array<{ symbol: string; address: Address; decimals: number }>;
-  uniswapV3: {
+  uniswapV3?: {
     factory: Address;
     quoter: Address;
     swapRouter: Address;
     universalRouter: Address;
     permit2: Address;
   };
-  uniswapV4: {
+  uniswapV4?: {
     poolManager: Address;
     quoter: Address;
     stateView?: Address;
     universalRouter: Address;
   };
-  restrictedFeeRouterAddress: Address;
-  restrictedFeeRouterEnv: "SLIPWAY_RHC_RESTRICTED_FEE_ROUTER_ADDRESS" | "SLIPWAY_BASE_RESTRICTED_FEE_ROUTER_ADDRESS";
+  stoxswap?: { factory: Address; router: Address; wrappedNative: Address; feeBps: number };
+  orbit?: { factory: Address; engine: Address; poolImplementation: Address; vault: Address };
+  restrictedFeeRouterAddress?: Address;
+  restrictedFeeRouterEnv?: "SLIPWAY_RHC_RESTRICTED_FEE_ROUTER_ADDRESS" | "SLIPWAY_BASE_RESTRICTED_FEE_ROUTER_ADDRESS";
 }
 
 const permit2 = "0x000000000022d473030f116ddee9f6b43ac78ba3" as Address;
@@ -33,6 +36,7 @@ const configs: Record<SlipwayChainId, ChainConfig> = {
     name: "Robinhood Chain",
     chainId: 4663,
     rpcEnv: "RHC_RPC_URL",
+    nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
     wrappedNative: "0x0bd7d308f8e1639fab988df18a8011f41eacad73",
     quoteAssets: [
       { symbol: "WETH", address: "0x0bd7d308f8e1639fab988df18a8011f41eacad73", decimals: 18 },
@@ -58,6 +62,7 @@ const configs: Record<SlipwayChainId, ChainConfig> = {
     name: "Base",
     chainId: 8453,
     rpcEnv: "BASE_RPC_URL",
+    nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
     wrappedNative: "0x4200000000000000000000000000000000000006",
     quoteAssets: [
       { symbol: "WETH", address: "0x4200000000000000000000000000000000000006", decimals: 18 },
@@ -78,6 +83,27 @@ const configs: Record<SlipwayChainId, ChainConfig> = {
     },
     restrictedFeeRouterAddress: "0xDf5c82a4e0d905f467dd93c9ff72496F31E9D074",
     restrictedFeeRouterEnv: "SLIPWAY_BASE_RESTRICTED_FEE_ROUTER_ADDRESS"
+  },
+  spcx: {
+    id: "spcx",
+    name: "SPCX Chain",
+    chainId: 46630022,
+    rpcEnv: "SPCX_RPC_URL",
+    nativeCurrency: { name: "SPCX", symbol: "SPCX", decimals: 18 },
+    wrappedNative: "0x74202fd3c0d481f21d67d2715d9f1b092dbf366b",
+    quoteAssets: [{ symbol: "SPCX", address: "0x74202fd3c0d481f21d67d2715d9f1b092dbf366b", decimals: 18 }],
+    orbit: {
+      factory: "0xc79e983385d6ef11a1d50a8f9807d2968cd6e8fa",
+      engine: "0xb163d5c6c9edd84a6e7118c1ad0f7ba139fa60a2",
+      poolImplementation: "0x03fba25bcb33d2fdb65330c441d2b11a7616d252",
+      vault: "0x784bd95b4a437eb4a97564fd564a945e6908fc53"
+    },
+    stoxswap: {
+      factory: "0xc6969de333c1ef67a71d00a3ac06099c4ab58922",
+      router: "0x17c99670aa52e1dd9912b7d150020a01b5707f79",
+      wrappedNative: "0x74202fd3c0d481f21d67d2715d9f1b092dbf366b",
+      feeBps: 30
+    }
   }
 };
 
@@ -88,21 +114,27 @@ export function getChainConfig(id: string): ChainConfig | undefined {
 }
 
 export function publicChainConfig(config: ChainConfig) {
+  const protocols: Record<string, unknown> = {};
+  if (config.uniswapV3) protocols.uniswapV3 = config.uniswapV3;
+  if (config.uniswapV4) protocols.uniswapV4 = config.uniswapV4;
+  if (config.stoxswap) protocols.stoxswap = config.stoxswap;
+  if (config.orbit) protocols.orbit = config.orbit;
+  if (config.restrictedFeeRouterAddress) protocols.slipwayFeeRouter = getRestrictedFeeRouterAddress(config);
   return {
     id: config.id,
     name: config.name,
     chainId: config.chainId,
+    nativeCurrency: config.nativeCurrency,
     quoteAssets: config.quoteAssets,
     protocols: {
-      uniswapV3: config.uniswapV3,
-      uniswapV4: config.uniswapV4,
-      slipwayFeeRouter: getRestrictedFeeRouterAddress(config)
+      ...protocols
     }
   };
 }
 
 export function getRestrictedFeeRouterAddress(config: ChainConfig): Address {
-  return (process.env[config.restrictedFeeRouterEnv]?.trim() || config.restrictedFeeRouterAddress) as Address;
+  const envValue = config.restrictedFeeRouterEnv ? process.env[config.restrictedFeeRouterEnv]?.trim() : undefined;
+  return (envValue || config.restrictedFeeRouterAddress || "0x0000000000000000000000000000000000000000") as Address;
 }
 
 export function getPublicClient(config: ChainConfig): PublicClient {
@@ -113,7 +145,7 @@ export function getPublicClient(config: ChainConfig): PublicClient {
   const chain = defineChain({
     id: config.chainId,
     name: config.name,
-    nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
+    nativeCurrency: config.nativeCurrency,
     rpcUrls: { default: { http: [rpcUrl] } }
   });
   const client = createPublicClient({ chain, transport: http(rpcUrl, { timeout: 12_000, retryCount: 1 }) });

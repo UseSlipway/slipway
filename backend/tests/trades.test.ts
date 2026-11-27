@@ -2,11 +2,13 @@ import { describe, expect, test } from "bun:test";
 import { quotePonsBuy, tradeChainId } from "../src/routes/trades";
 
 describe("trade quote chain mapping", () => {
-  test("accepts the stored chain slug and numeric chain ID", () => {
+  test("accepts supported chain slugs and numeric chain IDs", () => {
     expect(tradeChainId("rhc")).toBe("rhc");
     expect(tradeChainId(4663)).toBe("rhc");
     expect(tradeChainId("base")).toBe("base");
     expect(tradeChainId(8453)).toBe("base");
+    expect(tradeChainId("spcx")).toBe("spcx");
+    expect(tradeChainId(46630022)).toBe("spcx");
     expect(tradeChainId("solana")).toBeNull();
   });
 });
